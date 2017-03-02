@@ -48,35 +48,11 @@
   value: '0x16345785d8a0000'
   call: claim(string)
   args:
-    - 0d3a00941ed72a89f1bf273f17cfd12a0790b82d
-
-# Call method claim(string)
-- from: '0x1081108d14493ead0d4071cc757688ed7b111c32'
-  to: '0x56ba765b4da244fea35dd74d406220cb2703e478'
-  value: '0x16345785d8a0000'
-  call: claim(string)
-  args:
-    - 3ef7f42320a99a4d3e6ec0c95fd09913ba0b29ca
+    - e0a340e72784b1322929d6803773b31a2b6b5707
 
 #transfer 101 eth
 - from: '0x1081108d14493ead0d4071cc757688ed7b111c32'
   to: '0x56ba765b4da244fea35dd74d406220cb2703e478'
   value: '0x579a814e10a740000'
   data: null
-  
-# Call method claim(string)
-- from: '0x1081108d14493ead0d4071cc757688ed7b111c32'
-  to: '0x56ba765b4da244fea35dd74d406220cb2703e478'
-  value: '0x16345785d8a0000'
-  call: claim(string)
-  args:
-    - cdbac6784d1ccf1e8198c41233da5e4461e450c5
-
-# Call method claim(string)
-- from: '0x1081108d14493ead0d4071cc757688ed7b111c32'
-  to: '0x56ba765b4da244fea35dd74d406220cb2703e478'
-  value: '0x16345785d8a0000'
-  call: claim(string)
-  args:
-    - 583034f16b7125e3ec3686620cf84f430d9a0883
 
