@@ -22,3 +22,7 @@ Anyone can call this, and the tokens will be sent to the address registered in u
 
 ### Withdraw donations
 When contract enters in lock period just call `GitHubToken.withdraw()` to get your share of the donations.
+
+### Testing in ethereum-studio
+This project was created using ethereum-studio. It contains ethereum.json and scenarios. 
+Simply clone it in your workspace and you are ready to go.
