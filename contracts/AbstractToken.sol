@@ -1,7 +1,7 @@
-pragma solidity ^0.4.1;
+pragma solidity ^0.4.8;
 
 /**
- * AbstractCoin ECR20-compliant token contract
+ * AbstractToken ECR20-compliant token contract
  * Child should implement initial supply or minting and overwite base
  * Based on BasicCoin by Parity Team (Ethcore), 2016.
  * By Ricardo Guilherme Schmidt
@@ -10,8 +10,8 @@ pragma solidity ^0.4.1;
 
 import "Token.sol";
 
-// AbstractCoin, ECR20 tokens that all belong to the owner for sending around
-contract AbstractCoin is Token {
+// AbstractToken, ECR20 tokens that all belong to the owner for sending around
+contract AbstractToken is Token {
     // the base, tokens denoted in micros
     uint constant public base = 0;
 

@@ -5,7 +5,16 @@
 # 
 
 
-
+# Call method setAPICredentials(string,string)
+- from: '0x1081108d14493ead0d4071cc757688ed7b111c32'
+  to: '0x838ef69e5948e423db15757059d538b5bcaf659e'
+  value: '0x0'
+  call: 'setAPICredentials(string,string)'
+  args:
+    - >-
+      BLX/GHYsFjUNDKfRXSmJAGDrwzO3p1XFpK2DG9nwRHJ0wHMTA7K4wMj+eoKWc6HpkXnxwn/mC8GPsz3bbPnM6luWa7qLHdT94bQX4g19icuzgfm/4BkY6oK/EUhoE8IU34frpF4=
+    - >-
+      BEMxXob2oNvdvo44KXhyBgou2xqr0Lits2wCy/OzrAIsfg5HO+GOEhdcEYrEByjhQosAJJX7uvuj7GVH65J8X7IFUFLrvWabWdTmPIEXwXoBGeU67z6SUtzOOgvAvFKixfl8pAWCDacJGZVQOoY+97tq140VAACEOA==
 
 # Create contract GitHubToken
 - from: '0x1081108d14493ead0d4071cc757688ed7b111c32'
@@ -15,9 +24,9 @@
     name: GitHubToken
     dir: contracts/
     sources:
-      - BasicCoin.sol
+      - AbtractToken.sol
       - GithubToken.sol
-      - LockableCoin.sol
+      - CollaborationToken.sol
       - Token.sol
       - lib/oraclizeAPI_0.4.sol
     args:
@@ -44,7 +53,7 @@
 
 # Call method claim(string)
 - from: '0x1081108d14493ead0d4071cc757688ed7b111c32'
-  to: '0x56ba765b4da244fea35dd74d406220cb2703e478'
+  to: '0xcb69fe2674a9533ac30acf7a0a2a736f93f67fe1'
   value: '0x16345785d8a0000'
   call: claim(string)
   args:
@@ -52,7 +61,7 @@
 
 #transfer 101 eth
 - from: '0x1081108d14493ead0d4071cc757688ed7b111c32'
-  to: '0x56ba765b4da244fea35dd74d406220cb2703e478'
+  to: '0xcb69fe2674a9533ac30acf7a0a2a736f93f67fe1'
   value: '0x579a814e10a740000'
   data: null
 

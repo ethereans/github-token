@@ -1,0 +1,14 @@
+# 
+# Scenario1 
+# 
+# Created on: 06/03/2017 09:44:46 
+# 
+
+# Call method setAPICredentials(string,string)
+- from: '0x1081108d14493ead0d4071cc757688ed7b111c32'
+  to: '0x838ef69e5948e423db15757059d538b5bcaf659e'
+  value: '0x0'
+  call: 'setAPICredentials(string,string)'
+  args:
+    - BLX/GHYsFjUNDKfRXSmJAGDrwzO3p1XFpK2DG9nwRHJ0wHMTA7K4wMj+eoKWc6HpkXnxwn/mC8GPsz3bbPnM6luWa7qLHdT94bQX4g19icuzgfm/4BkY6oK/EUhoE8IU34frpF4=
+    - BEMxXob2oNvdvo44KXhyBgou2xqr0Lits2wCy/OzrAIsfg5HO+GOEhdcEYrEByjhQosAJJX7uvuj7GVH65J8X7IFUFLrvWabWdTmPIEXwXoBGeU67z6SUtzOOgvAvFKixfl8pAWCDacJGZVQOoY+97tq140VAACEOA==

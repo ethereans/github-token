@@ -17,25 +17,21 @@ pragma solidity ^0.4.8;
  */
  
 import "lib/oraclizeAPI_0.4.sol";
-import "LockableCoin.sol";
+import "Owned.sol";
+import "CollaborationToken.sol";
 
-contract GitHubToken is LockableCoin, usingOraclize {
-    //constant for oraclize commits callbacks
-    uint8 constant CALLBACK_CLAIMCOMMIT = 1;
+contract GitHubToken is CollaborationToken, usingOraclize {
+
     //stores repository name, used for claim calls
     string private repository;
     //stores repository name in sha3, used by GitHubOracle
     bytes32 public sha3repository;
-    //temporary storage enumerating oraclize calls
-    mapping (bytes32 => uint8) oraclize_type;
-    //temporary storage for oraclize commit token claim calls
-    mapping (bytes32 => string) oraclize_claim;
     //permanent storage of recipts of all commits
     mapping (bytes32 => CommitReciept) public commits;
     //Address of the oracle, used for github login address lookup
     GitHubOracle public oracle;
     //claim event
-    event Claim(address claimer, string commitid, uint total);
+    event Claim(string claimer, string commitid, uint total);
 
     //stores the total and user, and if claimed (used against double claiming)
     struct CommitReciept {
@@ -47,6 +43,11 @@ contract GitHubToken is LockableCoin, usingOraclize {
     //protect against double claiming
     modifier not_claimed(string commitid) {
         if(isClaimed(commitid)) throw;
+        _;
+    }
+    
+    modifier only_oracle {
+        if (msg.sender != address(oracle)) throw;
         _;
     }
     
@@ -64,35 +65,21 @@ contract GitHubToken is LockableCoin, usingOraclize {
         return commits[sha3(_commitid)].claimed;
     }   
 
-    //oraclize response callback
-    function __callback(bytes32 _ocid, string _result) {
-        if (msg.sender != oraclize_cbAddress()) throw;
-        uint8 callback_type = oraclize_type[_ocid];
-        if(callback_type==CALLBACK_CLAIMCOMMIT && !lock){
-            _claim(_ocid,_result);
-        }
-        delete oraclize_type[_ocid];
-    }
-    
-    //oraclize callback claim request
-    function _claim(bytes32 _ocid, string _result) 
-     internal {
-        var (login,total) = extract(_result);
-        address user = oracle.getUserAddress(login);
-        if(user != 0x0){
-            commits[sha3(oraclize_claim[_ocid])].user = user;
-            if(total > 0){
-                bytes32 shacommit = sha3(oraclize_claim[_ocid]);
-                commits[shacommit].total = total;
-                if(commits[shacommit].user != 0x0 && !commits[shacommit].claimed){
-                    commits[shacommit].claimed = true;
-                    accounts[user].balance += total;
-                    totalSupply += total;
-                    Claim(user,oraclize_claim[_ocid],total);
-                }
+    //oracle claim request
+    function _claim(string _commitid, string _login, uint _total) 
+     only_oracle {
+        if(_total > 0 && !lock){
+            bytes32 shacommit = sha3(_commitid); 
+            address user = oracle.getUserAddress(_login);
+            if(!commits[shacommit].claimed && user != 0x0){
+                commits[shacommit].claimed = true;
+                commits[shacommit].user = user;
+                commits[shacommit].total = _total;
+                accounts[user].balance += _total;
+                totalSupply += _total;
+                Claim(_login,_commitid,_total); 
             }
         }
-        delete oraclize_claim[_ocid];
     }
     
     //claims a commitid
@@ -100,13 +87,130 @@ contract GitHubToken is LockableCoin, usingOraclize {
      payable 
      not_locked
      not_claimed(_commitid) {
-        bytes32 ocid = oraclize_query("URL", strConcat("json(https://api.github.com/repos/", repository,"/commits/", _commitid,").[author,stats].[login,total]"));
-        oraclize_type[ocid] = CALLBACK_CLAIMCOMMIT;
-        oraclize_claim[ocid] = _commitid;
+        oracle.claimCommit(repository, _commitid);
    }
 
+}
+
+contract GitHubOracle is Owned, usingOraclize {
+    //constant for oraclize commits callbacks
+    uint8 constant CLAIM_USER = 0;
+    //constant for oraclize commits callbacks
+    uint8 constant CLAIM_COMMIT = 1;
+    //temporary storage enumerating oraclize calls
+    mapping (bytes32 => uint8) claimType;
+    //temporary storage for oraclize commit token claim calls
+    mapping (bytes32 => CommitClaim) commitClaim;
+    //temporary storage for oraclize user register queries
+    mapping (bytes32 => UserClaim) userClaim;
+    //permanent storage of sha3(login) of github users
+    mapping (bytes32 => address) users;
+    //permanent storage of registered repositories
+    mapping (bytes32 => Repository) repositories;
+    //store encrypted values of api access credentials
+    string private credentials = "";
+    //events
+    event UserSet(string githubLogin, address account);
+    event RepositoryAdd(string repository, address account);
+    
+    //stores the address of githubtoken and registered is used for overwriting previous registered
+    struct Repository {
+        GitHubToken account;
+        bool registered;
+    }
+    
+    //stores temporary data for oraclize user register request
+    struct UserClaim {
+        address sender;
+        bytes32 githubid;
+        string login;
+    }
+    //stores temporary data for oraclize repository commit claim
+    struct CommitClaim {
+        bytes32 repository;
+        string commitid;
+    }
+    
+    //return the address of a github login
+    function getUserAddress(string _login) 
+     external 
+     constant 
+     returns (address) {
+        return users[sha3(_login)];
+    }
+
+    //oraclize response callback
+    function __callback(bytes32 _ocid, string _result) {
+        if (msg.sender != oraclize_cbAddress()) throw;
+        uint8 callback_type = claimType[_ocid];
+        if(callback_type==CLAIM_USER){
+            if(strCompare(_result,"404: Not Found") != 0){    
+                address githubowner = parseAddr(_result);
+                if(userClaim[_ocid].sender == githubowner){
+                    _register(userClaim[_ocid].githubid,userClaim[_ocid].login,githubowner);
+                }
+            }
+            delete userClaim[_ocid]; //should always be deleted
+        }else if(callback_type==CLAIM_COMMIT){ 
+            var (login,total) = extractCommit(_result);
+            repositories[commitClaim[_ocid].repository].account._claim(commitClaim[_ocid].commitid,login,total);
+            delete commitClaim[_ocid]; //should always be deleted
+        }
+        delete claimType[_ocid]; //should always be deleted
+    }
+
+
+    function _register(bytes32 githubid, string login, address githubowner) 
+     internal {
+        users[githubid] = githubowner;
+        UserSet(login, githubowner);
+    }
+    
+    //register or change a github user ethereum address
+    function register(string _github_user, string _gistid)
+     payable {
+        bytes32 ocid = oraclize_query("URL", strConcat("https://gist.githubusercontent.com/",_github_user,"/",_gistid,"/raw/"));
+        claimType[ocid] = CLAIM_USER;
+        userClaim[ocid] = UserClaim({sender: msg.sender, githubid: sha3(_github_user), login: _github_user});
+    }
+    
+    function claimCommit(string _repository, string _commitid)
+     payable {
+        bytes32 ocid = oraclize_query("URL", strConcat(strConcat("json(https://api.github.com/repos/", _repository,"/commits/", _commitid, credentials),").[author,stats].[login,total]"));
+        claimType[ocid] = CLAIM_COMMIT;
+        commitClaim[ocid] = CommitClaim({repository: sha3(_repository), commitid: _commitid });
+    }
+    
+    //creates a new GitHubToken contract to _repository
+    function addRepository(string _repository) 
+     returns (GitHubToken) {
+        bytes32 repo = sha3(_repository);
+        if(repositories[repo].registered) throw;
+        repositories[repo] = Repository({account: new GitHubToken(_repository, this), registered: true});
+        RepositoryAdd(_repository, repositories[repo].account);
+        return repositories[repo].account;
+    }  
+    
+    //register a contract deployed outside Oracle
+    function addRepository(string _repository, GitHubToken _addr)
+     returns (GitHubToken) {
+        bytes32 repo = sha3(_repository);
+        if(repositories[repo].registered || _addr.sha3repository() != repo) throw;
+        repositories[repo] = Repository({account: _addr, registered: true});
+        RepositoryAdd(_repository, repositories[repo].account);
+        return repositories[repo].account;
+    }  
+    
+    //return the contract address of the repository (or 0x0 if none registered)
+    function getRepository(string _repository) 
+     constant 
+     returns (GitHubToken) {
+        return repositories[sha3(_repository)].account;
+    }
+    
+    
     //extract login name and total of changes in commit
-    function extract(string _s)
+    function extractCommit(string _s)
      internal
      constant 
      returns (string login,uint total) {
@@ -143,93 +247,14 @@ contract GitHubToken is LockableCoin, usingOraclize {
             }
         }
     }
-}
-
-contract GitHubOracle is usingOraclize {
-    //constant for oraclize commits callbacks
-    uint8 constant CALLBACK_REGISTER = 0;
-    //temporary storage enumerating oraclize calls
-    mapping (bytes32 => uint8) oraclize_type;
-    //temporary storage for oraclize user register queries
-    mapping (bytes32 => VerifyRequest) oraclize_register;
-    //permanent storage of sha3(login) of github users
-    mapping (bytes32 => address) github_users;
-    //permanent storage of registered repositories
-    mapping (bytes32 => Repository) repositories;
-    //events
-    event UserSet(string githubLogin, address account);
-    event RepositoryAdd(string repository, address account);
-    
-    //stores the address of githubtoken and registered is used for overwriting previous registered
-    struct Repository {
-        GitHubToken account;
-        bool registered;
+            
+    function setAPICredentials(string _client_id, string _client_secret)
+     only_owner {
+         credentials = strConcat("?client_id=${[decrypt] ",_client_id,"}&client_secret=${[decrypt] ",_client_secret,"}");
     }
     
-    //stores data for oraclize user register request
-    struct VerifyRequest {
-        address sender;
-        bytes32 githubid;
-        string login;
-    }
-    
-    //return the address of a github login
-    function getUserAddress(string _login) 
-     external 
-     constant 
-     returns (address) {
-        return github_users[sha3(_login)];
-    }
-
-    //oraclize response callback
-    function __callback(bytes32 _ocid, string result) {
-        if (msg.sender != oraclize_cbAddress()) throw;
-        uint8 callback_type = oraclize_type[_ocid];
-        if(callback_type==CALLBACK_REGISTER){
-            if(strCompare(result,"404: Not Found") != 0){    
-                address githubowner = parseAddr(result);
-                if(oraclize_register[_ocid].sender == githubowner){
-                    github_users[oraclize_register[_ocid].githubid] = githubowner;
-                    UserSet(oraclize_register[_ocid].login, githubowner);
-                }
-            }
-            delete oraclize_register[_ocid];
-        }
-        delete oraclize_type[_ocid];
-    }
-
-    //register or change a github user ethereum address
-    function register(string _github_user, string _gistid)
-     payable {
-        bytes32 ocid = oraclize_query("URL", strConcat("https://gist.githubusercontent.com/",_github_user,"/",_gistid,"/raw/"));
-        oraclize_type[ocid] = CALLBACK_REGISTER;
-        oraclize_register[ocid] = VerifyRequest({sender: msg.sender, githubid: sha3(_github_user), login: _github_user});
-    }
-    
-    //creates a new GitHubToken contract to _repository
-    function addRepository(string _repository) 
-     returns (GitHubToken) {
-        bytes32 repo = sha3(_repository);
-        if(repositories[repo].registered) throw;
-        repositories[repo] = Repository({account: new GitHubToken(_repository, this), registered: true});
-        RepositoryAdd(_repository, repositories[repo].account);
-        return repositories[repo].account;
-    }  
-    
-    //register a contract deployed outside Oracle
-    function addRepository(string _repository, GitHubToken _addr)
-     returns (GitHubToken) {
-        bytes32 repo = sha3(_repository);
-        if(repositories[repo].registered || _addr.sha3repository() != repo) throw;
-        repositories[repo] = Repository({account: _addr, registered: true});
-        RepositoryAdd(_repository, repositories[repo].account);
-        return repositories[repo].account;
-    }  
-    
-    //return the contract address of the repository (or 0x0 if none registered)
-    function getRepository(string _repository) 
-     constant 
-     returns (GitHubToken) {
-        return repositories[sha3(_repository)].account;
-    }
+    function clearAPICredentials()
+     only_owner {
+         credentials = "";
+     }
 }
