@@ -1,8 +1,7 @@
 pragma solidity ^0.4.8;
 
 /**
- * Contract that mint tokens by github commit stats
- * This file contain two contracts: GitHubOracle and GitHubToken
+ * Contract that oracle github API
  * 
  * GitHubOracle register users and create GitHubToken contracts
  * Registration requires user create a gist with only their account address
@@ -15,88 +14,19 @@ pragma solidity ^0.4.8;
  * By Ricardo Guilherme Schmidt
  * Released under GPLv3 License
  */
- 
-import "lib/oraclizeAPI_0.4.sol";
-import "Owned.sol";
-import "CollaborationToken.sol";
 
-contract GitHubToken is CollaborationToken, usingOraclize {
-
-    //stores repository name, used for claim calls
-    string private repository;
-    //stores repository name in sha3, used by GitHubOracle
-    bytes32 public sha3repository;
-    //permanent storage of recipts of all commits
-    mapping (bytes32 => CommitReciept) public commits;
-    //Address of the oracle, used for github login address lookup
-    GitHubOracle public oracle;
-    //claim event
-    event Claim(string claimer, string commitid, uint total);
-
-    //stores the total and user, and if claimed (used against double claiming)
-    struct CommitReciept {
-        uint256 total;
-        address user;
-        bool claimed;
-    }
-    
-    //protect against double claiming
-    modifier not_claimed(string commitid) {
-        if(isClaimed(commitid)) throw;
-        _;
-    }
-    
-    modifier only_oracle {
-        if (msg.sender != address(oracle)) throw;
-        _;
-    }
-    
-    function GitHubToken(string _repository, GitHubOracle _oracle) 
-     payable {
-        oracle = _oracle;
-        repository = _repository;
-        sha3repository = sha3(_repository);
-    }
-    
-    //checks if a commit is already claimed
-    function isClaimed(string _commitid) 
-     constant 
-     returns (bool) {
-        return commits[sha3(_commitid)].claimed;
-    }   
-
-    //oracle claim request
-    function _claim(string _commitid, string _login, uint _total) 
-     only_oracle {
-        if(_total > 0 && !lock){
-            bytes32 shacommit = sha3(_commitid); 
-            address user = oracle.getUserAddress(_login);
-            if(!commits[shacommit].claimed && user != 0x0){
-                commits[shacommit].claimed = true;
-                commits[shacommit].user = user;
-                commits[shacommit].total = _total;
-                accounts[user].balance += _total;
-                totalSupply += _total;
-                Claim(_login,_commitid,_total); 
-            }
-        }
-    }
-    
-    //claims a commitid
-    function claim(string _commitid) 
-     payable 
-     not_locked
-     not_claimed(_commitid) {
-        oracle.claimCommit(repository, _commitid);
-   }
-
-}
+import "lib/oraclize/ethereum-api/oraclizeAPI_0.4.sol";
+import "./Owned.sol";
+import "./GitHubToken.sol";
+import "./GitHubIssues.sol";
 
 contract GitHubOracle is Owned, usingOraclize {
-    //constant for oraclize commits callbacks
+    //constant for oraclize user callbacks
     uint8 constant CLAIM_USER = 0;
     //constant for oraclize commits callbacks
     uint8 constant CLAIM_COMMIT = 1;
+    //constant for oraclize issues callbacks
+    uint8 constant UPDATE_ISSUE = 2;
     //temporary storage enumerating oraclize calls
     mapping (bytes32 => uint8) claimType;
     //temporary storage for oraclize commit token claim calls
@@ -111,11 +41,12 @@ contract GitHubOracle is Owned, usingOraclize {
     string private credentials = "";
     //events
     event UserSet(string githubLogin, address account);
-    event RepositoryAdd(string repository, address account);
+    event RepositoryAdd(string repository, address token, address issues);
     
     //stores the address of githubtoken and registered is used for overwriting previous registered
     struct Repository {
-        GitHubToken account;
+        GitHubToken token;
+        GitHubIssues issues;
         bool registered;
     }
     
@@ -153,7 +84,7 @@ contract GitHubOracle is Owned, usingOraclize {
             delete userClaim[_ocid]; //should always be deleted
         }else if(callback_type==CLAIM_COMMIT){ 
             var (login,total) = extractCommit(_result);
-            repositories[commitClaim[_ocid].repository].account._claim(commitClaim[_ocid].commitid,login,total);
+            repositories[commitClaim[_ocid].repository].token._claim(commitClaim[_ocid].commitid,login,total);
             delete commitClaim[_ocid]; //should always be deleted
         }
         delete claimType[_ocid]; //should always be deleted
@@ -181,31 +112,40 @@ contract GitHubOracle is Owned, usingOraclize {
         commitClaim[ocid] = CommitClaim({repository: sha3(_repository), commitid: _commitid });
     }
     
+    function updateIssueState(string _repository, uint _issueid){
+        throw; // * DO NOT USE: under development
+        //bytes32 ocid = oraclize_query("URL", strConcat(strConcat("json(https://api.github.com/repos/", _repository,"/issues/", parseInt(_issueid), credentials),").[closed_at]"));
+    }
+    
     //creates a new GitHubToken contract to _repository
     function addRepository(string _repository) 
      returns (GitHubToken) {
         bytes32 repo = sha3(_repository);
         if(repositories[repo].registered) throw;
-        repositories[repo] = Repository({account: new GitHubToken(_repository, this), registered: true});
-        RepositoryAdd(_repository, repositories[repo].account);
-        return repositories[repo].account;
+        repositories[repo] = Repository({
+            token: new GitHubToken(_repository, this), 
+            issues: new GitHubIssues(_repository,this), 
+            registered: true
+        });
+        RepositoryAdd(_repository, repositories[repo].token, repositories[repo].issues);
+        return repositories[repo].token;
     }  
     
     //register a contract deployed outside Oracle
-    function addRepository(string _repository, GitHubToken _addr)
+    function addRepository(string _repository, GitHubToken _addr, GitHubIssues _issues)
      returns (GitHubToken) {
         bytes32 repo = sha3(_repository);
         if(repositories[repo].registered || _addr.sha3repository() != repo) throw;
-        repositories[repo] = Repository({account: _addr, registered: true});
-        RepositoryAdd(_repository, repositories[repo].account);
-        return repositories[repo].account;
+        repositories[repo] = Repository({token: _addr, issues: _issues, registered: true});
+        RepositoryAdd(_repository, repositories[repo].token, repositories[repo].issues);
+        return repositories[repo].token;
     }  
     
     //return the contract address of the repository (or 0x0 if none registered)
-    function getRepository(string _repository) 
+    function getRepositoryToken(string _repository) 
      constant 
      returns (GitHubToken) {
-        return repositories[sha3(_repository)].account;
+        return repositories[sha3(_repository)].token;
     }
     
     

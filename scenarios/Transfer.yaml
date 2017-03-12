@@ -7,7 +7,7 @@
     
  # Call method transfer(address,uint256)
 - from: '0x1081108d14493ead0d4071cc757688ed7b111c32'
-  to: '0x56ba765b4da244fea35dd74d406220cb2703e478'
+  to: '0x77a0e95b5d58cdb9b54f75e33b8764c87496abd1'
   value: '0x0'
   call: 'transfer(address,uint256)'
   args:

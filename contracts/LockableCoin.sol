@@ -1,1 +1,0 @@
-Moved to: https://github.com/ethereans/github-token/blob/master/contracts/CollaborationToken.sol

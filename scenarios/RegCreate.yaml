@@ -1,0 +1,25 @@
+# 
+# Create, register user, register repository and claim commits
+# 
+# Created on: 01/03/2017 12:02:15 
+# 
+
+
+# Call method addRepository(string)
+- from: '0x1081108d14493ead0d4071cc757688ed7b111c32'
+  to: '0x838ef69e5948e423db15757059d538b5bcaf659e'
+  value: '0x0'
+  call: addRepository(string)
+  args:
+    - ethereans/github-token
+
+# Call method register(string,string)
+- from: '0x1081108d14493ead0d4071cc757688ed7b111c32'
+  to: '0x838ef69e5948e423db15757059d538b5bcaf659e'
+  value: '0x16345785d8a0000'
+  call: 'register(string,string)'
+  args:
+    - 3esmit
+    - 31a58f2ddf2258697cce1b969e7c298b
+
+

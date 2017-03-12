@@ -1,7 +1,7 @@
 pragma solidity ^0.4.8;
 
 /**
- * 
+ * DO NOT USE: under development
  */
  
 contract AbstractBounty {
@@ -20,10 +20,12 @@ contract AbstractBounty {
      
     modifier only_unlocked(uint num){
         if(issues[num].unlock == 0 || issues[num].unlock > now) throw;
+        _;
     }
      
     modifier only_unclaimed(uint num){
         if(issues[num].claimed) throw;
+        _;
     }
      
     function deposit(uint num) 
@@ -39,15 +41,15 @@ contract AbstractBounty {
         uint avaliable = deposits[msg.sender][num];
         deposits[msg.sender][num] -= avaliable;
         issues[num].balance -= avaliable;
-        msg.sender.send(avaliable);
+        if(!msg.sender.send(avaliable)) throw;
     }
      
-    function open(uint num) 
+    function lock(uint num) 
      only_unlocked(num)
      internal {
           issues[num].unlock=0;
     }
-    function close(uint num)
+    function unlock(uint num)
      only_unlocked(num)
      internal {
          issues[num].unlock=now+LOCKED_TIME;
