@@ -50,6 +50,8 @@ contract GitHubToken is CollaborationToken {
     }
     
     function GitHubToken(string _repository, GitHubOracle _oracle) {
+        setAttribute("name", _repository);
+        setDecimalBase(0);
         oracle = _oracle;
         repository = _repository;
         sha3repository = sha3(_repository);
