@@ -1,5 +1,5 @@
-# GitHubToken 
-Contract using Oraclize that mint tokens by github commit stats.
+# GitHubOracle 
+Tokenize github repositories by commits and issues. Accept donations in eth tokens, distribute donations and bounties to code commiters.
  
 ## Usage 
   
@@ -15,8 +15,8 @@ Example:  `GitHubOracle.addRepository("ethereans/github-token")`
  
 ### Claiming Tokens  
 Push your commits to github and take the github commitid for each push.
-Call `GitHubToken.claim("<commitid>")`  
-Example: `GitHubToken.claim("0d3a00941ed72a89f1bf273f17cfd12a0790b82d")`  
+Call `GitHubOracle.claimCommit("<commitid>")`  
+Example: `GitHubOracle.claimCommit("0d3a00941ed72a89f1bf273f17cfd12a0790b82d")`  
 There is no need of specifing the user, this is returned by oraclize call, but the user need to be registered in GitHubOracle in order to claim the tokens. 
 Anyone can call this, and the tokens will be sent to the address registered in user registry.
 
