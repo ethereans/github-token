@@ -9,13 +9,13 @@ library StringLib {
 		return val - (val < 58 ? 48 : (val < 97 ? 55 : 87)); //both
     }
     
-    function toBytes32(string memory source) internal constant returns (bytes32 result) {
+    function toBytes32(string memory source) constant returns (bytes32 result) {
         assembly {
             result := mload(add(source, 32))
         }
     }
     function parseBytes20(string self) 
-    internal constant returns (bytes20 bs) {
+    constant returns (bytes20 bs) {
         bytes memory h = bytes(self);
         if (h.length>>1 != 20)
             throw;// new Exception("The binary need 20 digits");
@@ -26,7 +26,7 @@ library StringLib {
         return bs;
     }
     function parseBytes32(string self) 
-     internal constant returns (bytes32 bs) {
+     constant returns (bytes32 bs) {
         bytes memory h = bytes(self);
         if (h.length>>1 != 32)
             throw;// new Exception("The binary need 20 digits");
@@ -36,7 +36,7 @@ library StringLib {
         }
         return bs;
     }
-    function parseAddr(string self) internal constant returns (address){
+    function parseAddr(string self) constant returns (address){
         bytes memory tmp = bytes(self);
         uint iaddr = 0;
         for (uint i=2; i<2+2*20; i+=2){
@@ -45,7 +45,7 @@ library StringLib {
         return address(iaddr);
     }
     
-    function compare(string self, string _b) internal constant returns (int) {
+    function compare(string self, string _b) constant returns (int) {
         bytes memory a = bytes(self);
         bytes memory b = bytes(_b);
         uint minLength = a.length;
@@ -63,7 +63,7 @@ library StringLib {
             return 0;
     }
 
-    function indexOf(string _haystack, string _needle) internal constant returns (int) {
+    function indexOf(string _haystack, string _needle) constant returns (int) {
         bytes memory h = bytes(_haystack);
         bytes memory n = bytes(_needle);
         if(h.length < 1 || n.length < 1 || (n.length > h.length))
@@ -89,6 +89,31 @@ library StringLib {
             return -1;
         }
     }
+
+    // parseInt
+    function parseInt(string self) constant returns (uint) {
+        return parseInt(self, 0);
+    }
+
+    // parseInt(parseFloat*10^_b)
+    function parseInt(string self, uint _b) constant returns (uint) {
+        bytes memory bresult = bytes(self);
+        uint mint = 0;
+        bool decimals = false;
+        for (uint i=0; i<bresult.length; i++){
+            if ((bresult[i] >= 48)&&(bresult[i] <= 57)){
+                if (decimals){
+                   if (_b == 0) break;
+                    else _b--;
+                }
+                mint *= 10;
+                mint += uint(bresult[i]) - 48;
+            } else if (bresult[i] == 46) decimals = true;
+        }
+        if (_b > 0) mint *= 10**_b;
+        return mint;
+    }
+
 
     function concat(string self, string _b, string _c, string _d, string _e) internal constant returns (string) {
         bytes memory _ba = bytes(self);
@@ -118,34 +143,5 @@ library StringLib {
     function concat(string self, string _b) internal constant returns (string) {
         return concat(self, _b, "", "", "");
     }
-
-    // parseInt
-    function parseInt(string self) internal constant returns (uint) {
-        return parseInt(self, 0);
-    }
-
-    // parseInt(parseFloat*10^_b)
-    function parseInt(string self, uint _b) internal constant returns (uint) {
-        bytes memory bresult = bytes(self);
-        uint mint = 0;
-        bool decimals = false;
-        for (uint i=0; i<bresult.length; i++){
-            if ((bresult[i] >= 48)&&(bresult[i] <= 57)){
-                if (decimals){
-                   if (_b == 0) break;
-                    else _b--;
-                }
-                mint *= 10;
-                mint += uint(bresult[i]) - 48;
-            } else if (bresult[i] == 46) decimals = true;
-        }
-        if (_b > 0) mint *= 10**_b;
-        return mint;
-    }
-
-
-    
-
-    
 
 }

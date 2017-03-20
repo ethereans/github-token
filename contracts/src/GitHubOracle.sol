@@ -15,8 +15,8 @@ pragma solidity ^0.4.8;
  * Released under GPLv3 License
  */
  
-import "lib/ethereans/util/StringLib.sol";
-import "lib/ethereans/util/JSONLib.sol";
+import "lib/StringLib.sol";
+import "lib/JSONLib.sol";
 
 import "lib/oraclize/oraclizeAPI_0.4.sol";
 import "lib/ethereans/management/Owned.sol";
@@ -28,7 +28,6 @@ import "./storage/GitHubOracleStorageI.sol";
 contract GitHubOracle is Owned, usingOraclize {
 
     using StringLib for string;
-    using JSONLib for JSONLib.JSON;
 
     GitRepositoryFactoryI public gitRepositoryFactoryI;
     GitHubOracleStorageI public db;
@@ -110,10 +109,11 @@ contract GitHubOracle is Owned, usingOraclize {
      internal {
         uint256 userId; string memory login; address addrLoaded; 
         uint8 utype; //TODO
-        JSONLib.JSON memory v = JSONLib.json(result);
-        (addrLoaded,v) = v.getNextAddr();
-        (userId,v) = v.getNextUInt();
-        (login,v) = v.getNextString();
+        bytes memory v = bytes(result);
+        uint8 pos = 0;
+        (addrLoaded,pos) = JSONLib.getNextAddr(v,pos);
+        (userId,pos) = JSONLib.getNextUInt(v,pos);
+        (login,pos) = JSONLib.getNextString(v,pos);
         if(userClaim[myid].sender == addrLoaded && userClaim[myid].githubid.compare(login) == 0){
             UserSet(login); 
             db.addUser(userId, login, utype, addrLoaded);
@@ -126,11 +126,12 @@ contract GitHubOracle is Owned, usingOraclize {
       {
         uint256 projectId; string memory full_name; uint256 watchers; uint256 subscribers; 
         uint256 ownerId; string memory name; //TODO
-        JSONLib.JSON memory v = JSONLib.json(result);
-        (projectId,v) = v.getNextUInt();
-        (full_name,v) = v.getNextString();
-        (watchers,v) = v.getNextUInt();
-        (subscribers,v) = v.getNextUInt();
+        bytes memory v = bytes(result);
+        uint8 pos = 0;
+        (projectId,pos) = JSONLib.getNextUInt(v,pos);
+        (full_name,pos) = JSONLib.getNextString(v,pos);
+        (watchers,pos) = JSONLib.getNextUInt(v,pos);
+        (subscribers,pos) = JSONLib.getNextUInt(v,pos);
         address repository = db.getRepositoryAddress(projectId);
         if(repository == 0x0){
             GitRepositoryRegistered(projectId,full_name,watchers,subscribers);
@@ -144,9 +145,10 @@ contract GitHubOracle is Owned, usingOraclize {
     function _claimCommit(bytes32 myid, string result)
      internal {
         uint256 total; uint256 userId;
-        JSONLib.JSON memory v = JSONLib.json(result);
-        (userId,v) = v.getNextUInt();
-		(total,v) = v.getNextUInt();
+        bytes memory v = bytes(result);
+        uint8 pos = 0;
+        (userId,pos) = JSONLib.getNextUInt(v,pos);
+		(total,pos) = JSONLib.getNextUInt(v,pos);
 		NewClaim(commitClaim[myid].repository,commitClaim[myid].commitid,userId,total);
 		GitRepositoryI repository = GitRepositoryI(db.getRepositoryAddress(commitClaim[myid].repository));
 		repository.claim(commitClaim[myid].commitid.parseBytes20(), db.getUserAddress(userId), total);
