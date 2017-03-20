@@ -14,24 +14,25 @@ pragma solidity ^0.4.8;
  * By Ricardo Guilherme Schmidt
  * Released under GPLv3 License
  */
-
-import "lib/oraclize/oraclizeAPI_0.4.sol";
+ 
 import "lib/ethereans/util/StringLib.sol";
 import "lib/ethereans/util/JSONLib.sol";
-import "lib/ethereans/migrations/Owned.sol";
-import "./GitRepositoryFactoryI.sol";
-import "./GitHubOracleStorage.sol";
+
+import "lib/oraclize/oraclizeAPI_0.4.sol";
+import "lib/ethereans/management/Owned.sol";
+import "./git-repository/GitRepositoryFactoryI.sol";
+import "./storage/GitHubOracleStorageI.sol";
 
 
 
 contract GitHubOracle is Owned, usingOraclize {
+
     using StringLib for string;
     using JSONLib for JSONLib.JSON;
-    
+
     GitRepositoryFactoryI public gitRepositoryFactoryI;
-    GitHubOracleStorage public db;
-    
-    
+    GitHubOracleStorageI public db;
+
     enum OracleType { SET_REPOSITORY, SET_USER, CLAIM_COMMIT, UPDATE_ISSUE }
     mapping (bytes32 => OracleType) claimType; //temporary db enumerating oraclize calls
     mapping (bytes32 => CommitClaim) commitClaim; //temporary db for oraclize commit token claim calls
@@ -50,35 +51,35 @@ contract GitHubOracle is Owned, usingOraclize {
         string commitid;
     }
     
-    function GitHubOracle(GitRepositoryFactoryI _gitRepositoryFactoryI){
-       gitRepositoryFactoryI = _gitRepositoryFactoryI; // 0x17956bA5f4291844bc25aEDb27e69bc11B5Bda39;
-       db = new GitHubOracleStorage();
+    function GitHubOracle(GitHubOracleStorageI _db, GitRepositoryFactoryI _gitRepositoryFactoryI){ //
+       gitRepositoryFactoryI = _gitRepositoryFactoryI;
+       db = _db;
     }
     
     //register or change a github user ethereum address 100000000000000000
     function register(string _github_user, string _gistid)
      payable {
-        bytes32 ocid = oraclize_query("nested", StringLib.str("[identity] ${[URL] https://gist.githubusercontent.com/").concat(_github_user,"/",_gistid,"/raw/}, ${[URL] json(https://api.github.com/gists/").concat(_gistid,credentials,").owner.[id,login]}"));
+        bytes32 ocid = oraclize_query("nested", StringLib.concat("[identity] ${[URL] https://gist.githubusercontent.com/",_github_user,"/",_gistid,"/raw/}, ${[URL] json(https://api.github.com/gists/").concat(_gistid,credentials,").owner.[id,login]}"));
         claimType[ocid] = OracleType.SET_USER;
         userClaim[ocid] = UserClaim({sender: msg.sender, githubid: _github_user});
     }
     
     function claimCommit(string _repository, string _commitid)
      payable {
-        bytes32 ocid = oraclize_query("URL", StringLib.str("json(https://api.github.com/repos/").concat(_repository,"/commits/", _commitid, credentials).concat(").[author,stats].[id,total]"));
+        bytes32 ocid = oraclize_query("URL", StringLib.concat("json(https://api.github.com/repos/",_repository,"/commits/", _commitid, credentials).concat(").[author,stats].[id,total]"));
         claimType[ocid] = OracleType.CLAIM_COMMIT;
         commitClaim[ocid] = CommitClaim( { repository: _repository, commitid:_commitid});
     }
     
     function addRepository(string _repository)
      payable {
-        bytes32 ocid = oraclize_query("URL", StringLib.str("json(https://api.github.com/repos/").concat(_repository,").$.id,full_name,watchers,subscribers_count"),3000000);
+        bytes32 ocid = oraclize_query("URL", StringLib.concat("json(https://api.github.com/repos/",_repository,credentials,").$.id,full_name,watchers,subscribers_count"),4000000);
         claimType[ocid] = OracleType.SET_REPOSITORY;
     }  
     
     function setAPICredentials(string _client_id, string _client_secret)
      only_owner {
-         credentials = StringLib.str("?client_id=${[decrypt] ").concat(_client_id,"}&client_secret=${[decrypt] ",_client_secret,"}");
+         credentials = StringLib.concat("?client_id=${[decrypt] ", _client_id,"}&client_secret=${[decrypt] ", _client_secret,"}");
     }
     
     function clearAPICredentials()
@@ -107,36 +108,36 @@ contract GitHubOracle is Owned, usingOraclize {
     event UserSet(string githubLogin);
     function _register(bytes32 myid, string result) 
      internal {
-        uint256 userId; string memory login; address addrLoaded;
+        uint256 userId; string memory login; address addrLoaded; 
+        uint8 utype; //TODO
         JSONLib.JSON memory v = JSONLib.json(result);
         (addrLoaded,v) = v.getNextAddr();
         (userId,v) = v.getNextUInt();
         (login,v) = v.getNextString();
         if(userClaim[myid].sender == addrLoaded && userClaim[myid].githubid.compare(login) == 0){
-            UserSet(login);
-            db.setUserAddress(userId, addrLoaded);
-            db.setUserName(userId, login);
-        }
+            UserSet(login); 
+            db.addUser(userId, login, utype, addrLoaded);
+        } //TODO: update user login and address;
         delete userClaim[myid]; //should always be deleted
     }
     
     event GitRepositoryRegistered(uint256 projectId, string full_name, uint256 watchers, uint256 subscribers);    
-    function _setRepository(bytes32 myid, string result)
-     internal {
-        uint256 projectId; string memory full_name; uint256 watchers; uint256 subscribers;
+    function _setRepository(bytes32 myid, string result) //[83725290, "ethereans/github-token", 4, 2]
+      {
+        uint256 projectId; string memory full_name; uint256 watchers; uint256 subscribers; 
+        uint256 ownerId; string memory name; //TODO
         JSONLib.JSON memory v = JSONLib.json(result);
         (projectId,v) = v.getNextUInt();
         (full_name,v) = v.getNextString();
         (watchers,v) = v.getNextUInt();
         (subscribers,v) = v.getNextUInt();
-        GitRepositoryI repository = GitRepositoryI(db.repositories(projectId));
-        if(address(repository) == 0x0){
+        address repository = db.getRepositoryAddress(projectId);
+        if(repository == 0x0){
             GitRepositoryRegistered(projectId,full_name,watchers,subscribers);
-            db.setRepositoryName(projectId,full_name);
-            if(!gitRepositoryFactoryI.delegatecall(bytes4(sha3("newGitRepository(address,uint256)")),db,projectId)) throw;
-            repository = GitRepositoryI(db.repositories(projectId));
+            repository = gitRepositoryFactoryI.newGitRepository(projectId,full_name);
+            db.addRepository(projectId,ownerId,name,full_name,repository);
         }
-        repository.setStats(subscribers,watchers);
+        GitRepositoryI(repository).setStats(subscribers,watchers);
     }
 
     event NewClaim(string repository, string commitid, uint userid, uint total );
@@ -147,20 +148,10 @@ contract GitHubOracle is Owned, usingOraclize {
         (userId,v) = v.getNextUInt();
 		(total,v) = v.getNextUInt();
 		NewClaim(commitClaim[myid].repository,commitClaim[myid].commitid,userId,total);
-		GitRepositoryI repository = GitRepositoryI(db.repositories(db.getRepositoryId(commitClaim[myid].repository)));
-		repository.claim(commitClaim[myid].commitid.parseBytes20(), db.users(userId), total);
+		GitRepositoryI repository = GitRepositoryI(db.getRepositoryAddress(commitClaim[myid].repository));
+		repository.claim(commitClaim[myid].commitid.parseBytes20(), db.getUserAddress(userId), total);
         delete commitClaim[myid]; //should always be deleted
     }
 
 
-    function getGitRepository(uint projectId) constant returns (address){
-        return db.repositories(projectId);
-    }
-    function getGitRepository(string full_name) constant returns (address){
-        return db.repositories(getGitRepositoryId(full_name));
-    }
-    function getGitRepositoryId(string full_name) constant returns (uint256){
-        return db.getRepositoryId(full_name);
-    }
-    
 }

@@ -8,7 +8,7 @@
  * By Ricardo Guilherme Schmidt
  * Released under GPLv3 License
  */
-import "lib/ethereans/migrations/Owned.sol";
+import "lib/ethereans/management/Owned.sol";
 
 contract GitRepositoryStorage is Owned {
   

@@ -7,12 +7,12 @@ library JSONLib {
         uint8 scan;
     }
     
-    function json(string json) internal returns (JSON){
+    function json(string json) internal constant returns (JSON){
         return JSON({ b: bytes(json), scan: 0});
     }
     
    
-    function getNextString(JSON self) internal returns (string,JSON) {
+    function getNextString(JSON self) internal constant returns (string,JSON) {
         uint8 start = 0;
         uint8 end = 0;
         for (;self.b.length > self.scan; self.scan++) {
@@ -34,7 +34,7 @@ library JSONLib {
 	}
 	
 
-    function getNextUInt(JSON self) internal returns (uint,JSON) {
+    function getNextUInt(JSON self) internal constant returns (uint,JSON) {
         uint val = 0;
         for (; self.b.length > self.scan; self.scan++) {
             if (self.b[self.scan] == ','){ //Find ends
@@ -47,7 +47,7 @@ library JSONLib {
         return (val,self);
     }
 
-    function getNextAddr(JSON self) internal returns (address, JSON){
+    function getNextAddr(JSON self) internal constant returns (address, JSON){
         uint160 iaddr = 0;
         for(;self.b.length > self.scan; self.scan++){
              if (self.b[self.scan] == '0'){ 
@@ -67,7 +67,7 @@ library JSONLib {
         return (address(iaddr),self);
     }
     
-    function hexVal(uint val) internal returns (uint){
+    function hexVal(uint val) internal constant returns (uint){
 		//return val - (val < 58 ? 48 : 55); //uppercase
 		//return val - (val < 58 ? 48 : 87); //lowercase
 		return val - (val < 58 ? 48 : (val < 97 ? 55 : 87)); //both

@@ -15,7 +15,7 @@ pragma solidity ^0.4.8;
  * Released under GPLv3 License
  */
  
-import "lib/ethereans/migrations/Owned.sol";
+import "lib/ethereans/management/Owned.sol";
 import "./GitRepositoryI.sol";
 import "./GitRepositoryToken.sol";
 import "./GitRepositoryStorage.sol";

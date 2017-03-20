@@ -2,24 +2,20 @@ pragma solidity ^0.4.9;
 
 
 library StringLib {
-    
-    function str(string self) internal returns (string){
-        return self;
-    }
-    
-    function hexVal(uint val) internal returns (uint){
+
+    function hexVal(uint val) internal constant returns (uint){
 		//return val - (val < 58 ? 48 : 55); //uppercase
 		//return val - (val < 58 ? 48 : 87); //lowercase
 		return val - (val < 58 ? 48 : (val < 97 ? 55 : 87)); //both
     }
     
-    function toBytes32(string memory source) internal returns (bytes32 result) {
+    function toBytes32(string memory source) internal constant returns (bytes32 result) {
         assembly {
             result := mload(add(source, 32))
         }
     }
     function parseBytes20(string self) 
-    internal returns (bytes20 bs) {
+    internal constant returns (bytes20 bs) {
         bytes memory h = bytes(self);
         if (h.length>>1 != 20)
             throw;// new Exception("The binary need 20 digits");
@@ -30,7 +26,7 @@ library StringLib {
         return bs;
     }
     function parseBytes32(string self) 
-     internal returns (bytes32 bs) {
+     internal constant returns (bytes32 bs) {
         bytes memory h = bytes(self);
         if (h.length>>1 != 32)
             throw;// new Exception("The binary need 20 digits");
@@ -40,7 +36,7 @@ library StringLib {
         }
         return bs;
     }
-    function parseAddr(string self) internal returns (address){
+    function parseAddr(string self) internal constant returns (address){
         bytes memory tmp = bytes(self);
         uint iaddr = 0;
         for (uint i=2; i<2+2*20; i+=2){
@@ -49,7 +45,7 @@ library StringLib {
         return address(iaddr);
     }
     
-    function compare(string self, string _b) internal returns (int) {
+    function compare(string self, string _b) internal constant returns (int) {
         bytes memory a = bytes(self);
         bytes memory b = bytes(_b);
         uint minLength = a.length;
@@ -67,7 +63,7 @@ library StringLib {
             return 0;
     }
 
-    function indexOf(string _haystack, string _needle) internal returns (int) {
+    function indexOf(string _haystack, string _needle) internal constant returns (int) {
         bytes memory h = bytes(_haystack);
         bytes memory n = bytes(_needle);
         if(h.length < 1 || n.length < 1 || (n.length > h.length))
@@ -94,7 +90,7 @@ library StringLib {
         }
     }
 
-    function concat(string self, string _b, string _c, string _d, string _e) internal returns (string) {
+    function concat(string self, string _b, string _c, string _d, string _e) internal constant returns (string) {
         bytes memory _ba = bytes(self);
         bytes memory _bb = bytes(_b);
         bytes memory _bc = bytes(_c);
@@ -111,25 +107,25 @@ library StringLib {
         return string(babcde);
     }
 
-    function concat(string self, string _b, string _c, string _d) internal returns (string) {
+    function concat(string self, string _b, string _c, string _d) internal constant returns (string) {
         return concat(self, _b, _c, _d, "");
     }
 
-    function concat(string self, string _b, string _c) internal returns (string) {
+    function concat(string self, string _b, string _c) internal constant returns (string) {
         return concat(self, _b, _c, "", "");
     }
 
-    function concat(string self, string _b) internal returns (string) {
+    function concat(string self, string _b) internal constant returns (string) {
         return concat(self, _b, "", "", "");
     }
 
     // parseInt
-    function parseInt(string self) internal returns (uint) {
+    function parseInt(string self) internal constant returns (uint) {
         return parseInt(self, 0);
     }
 
     // parseInt(parseFloat*10^_b)
-    function parseInt(string self, uint _b) internal returns (uint) {
+    function parseInt(string self, uint _b) internal constant returns (uint) {
         bytes memory bresult = bytes(self);
         uint mint = 0;
         bool decimals = false;

@@ -16,7 +16,8 @@ pragma solidity ^0.4.8;
  */
 
 import "lib/ethereans/token/CollaborationToken.sol";
-import "lib/ethereans/migrations/Owned.sol";
+import "lib/ethereans/management/Owned.sol";
+
 contract GitRepositoryToken is CollaborationToken, Owned {
 
     function GitRepositoryToken(string _repository) {

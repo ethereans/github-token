@@ -6,7 +6,7 @@ pragma solidity ^0.4.0;
     uint constant week = 60*60*24*7;
     uint constant month = 60*60*24*30;
     
-    function uint2str(uint i) internal returns (string){
+    function uint2str(uint i) internal constant returns (string){
         if (i == 0) return "0";
         uint j = i;
         uint len;
