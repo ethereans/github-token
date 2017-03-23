@@ -38,6 +38,9 @@ contract GitHubOracle is Owned, usingOraclize {
     mapping (bytes32 => UserClaim) userClaim; //temporary db for oraclize user register queries
 
     string private credentials = ""; //store encrypted values of api access credentials
+    string private secret = "";
+    string private client = "";
+    string private script = "";
     
     //stores temporary data for oraclize user register request
     struct UserClaim {
@@ -75,7 +78,21 @@ contract GitHubOracle is Owned, usingOraclize {
         bytes32 ocid = oraclize_query("URL", StringLib.concat("json(https://api.github.com/repos/",_repository,credentials,").$.id,full_name,watchers,subscribers_count"),4000000);
         claimType[ocid] = OracleType.SET_REPOSITORY;
     }  
+
+
+    function getRepository(uint id) constant returns (address){
+        return db.getRepositoryAddress(projectId);
+    } 
     
+    function getRepository(string full_name) constant returns (address){
+        return db.getRepositoryAddress(full_name);
+    } 
+    
+    function setScript(string _script){
+        script = _script;
+    }
+
+    //owner management
     function setAPICredentials(string _client_id, string _client_secret)
      only_owner {
          credentials = StringLib.concat("?client_id=${[decrypt] ", _client_id,"}&client_secret=${[decrypt] ", _client_secret,"}");
@@ -86,7 +103,16 @@ contract GitHubOracle is Owned, usingOraclize {
          credentials = "";
      }
 
+    
+    function bountyIssue(uint repositoryId, uint issueId) payable{
+        
+    }
 
+
+    //Internal Functions
+        
+
+    //
     event OracleEvent(bytes32 myid, string result, bytes proof);
     //oraclize response callback
 
@@ -123,7 +149,7 @@ contract GitHubOracle is Owned, usingOraclize {
     
     event GitRepositoryRegistered(uint256 projectId, string full_name, uint256 watchers, uint256 subscribers);    
     function _setRepository(bytes32 myid, string result) //[83725290, "ethereans/github-token", 4, 2]
-      {
+    {
         uint256 projectId; string memory full_name; uint256 watchers; uint256 subscribers; 
         uint256 ownerId; string memory name; //TODO
         bytes memory v = bytes(result);
@@ -155,5 +181,7 @@ contract GitHubOracle is Owned, usingOraclize {
         delete commitClaim[myid]; //should always be deleted
     }
 
-
+    
+    
+    
 }

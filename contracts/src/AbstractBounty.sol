@@ -3,64 +3,69 @@ pragma solidity ^0.4.8;
 /**
  * DO NOT USE: under development
  */
+
+import "lib/ethereans/management/Owned.sol" ;
  
-contract AbstractBounty {
+contract GitBountyBank is Owned {
      
-    uint public constant LOCKED_TIME = 30 days;
-     
-    mapping (address => mapping(uint => uint)) deposits;
-    mapping (uint => Issue) issues;
-     
-    struct Issue {
-        uint balance;
-        uint unlock;
-        address claimer;
-        bool claimed;
+    mapping (uint => Bounty) bounties;
+    uint lockPeriod = 1 month;
+    struct Bounty {
+        bool open;
+        uint closedAt; 
+        uint stats;
+        uint statsClaimed;
+        
+        mapping (uint=>Account) deposits;
+        uint depositIndex;
+        uint deposited;
+        mapping (bytes20=>Account) claims;
+        uint claimed;
+
+    }
+    
+    struct Account {
+        address owner;
+        uint amount;
     }
      
-    modifier only_unlocked(uint num){
-        if(issues[num].unlock == 0 || issues[num].unlock > now) throw;
-        _;
+    
+    function balanceOf(uint num) constant returns(uint){
+        return bounties[num].deposited - bounties[num].claimed;
     }
      
-    modifier only_unclaimed(uint num){
-        if(issues[num].claimed) throw;
-        _;
+    function setState(uint num, uint stats, bool open, uint closedAt){
+        if (bounties[num].stats >= stats) throw;
+        bounties[num].stats = stats;
+        bounties[num].open = open;
+        bounties[num].closedAt = closedAt;
+    } 
+    
+    function deposit(uint num, address account) 
+     payable returns (uint reciept) {
+        if (!bounties[num].open) throw;
+        reciept = bounties[num].depositIndex;
+        bounties[num].deposits[reciept] = { owner: account, amount: msg.value };
+        bounties[num].depositIndex++;
+        bounties[num].balance += msg.value;
+        return reciept;
     }
      
-    function deposit(uint num) 
-     only_unclaimed(num) 
-     payable {
-        deposits[msg.sender][num] += msg.value;
-        issues[num].balance += msg.value;
+    function withdraw(uint num, uint reciept, address account) internal {
+    if (!bounties[num].open || now < bounties[num].closedAt+lockPeriod) throw;    
+        if(bounties[num].deposits[reciept].owner != account) throw;
+        uint avaliable = bounties[num].deposits[reciept].amount;
+        delete bounties[num].deposits[reciept];
+        bounties[num].balance -= avaliable;
+        if(!account.send(avaliable)) throw;
     }
-     
-    function withdraw(uint num)
-     only_unlocked(num)
-     only_unclaimed(num) {
-        uint avaliable = deposits[msg.sender][num];
-        deposits[msg.sender][num] -= avaliable;
-        issues[num].balance -= avaliable;
-        if(!msg.sender.send(avaliable)) throw;
-    }
-     
-    function lock(uint num) 
-     only_unlocked(num)
-     internal {
-          issues[num].unlock=0;
-    }
-    function unlock(uint num)
-     only_unlocked(num)
-     internal {
-         issues[num].unlock=now+LOCKED_TIME;
-    }
-     
-    function claim(uint num)
-     only_unlocked(num)
-     only_unclaimed(num) {
-        issues[num].claimer = msg.sender;
-        issues[num].claimed = true;
-        if(!msg.sender.send(issues[num].balance)) throw;
+   
+    function claim(uint num, uint stats, bytes20 commitid, address beneficiary) internal {
+        if (bounties[num].open || now < bounties[num].closedAt+lockPeriod) throw;
+        uint balance = bounties[num].deposited - bounties[num].claimed;
+        uint remainingStats = bounties[num].stats - bounties[num].statsClaimed;
+        bounties[num].claims[commitid] = { owner: account, amount: stats };
+        
     }
      
  }
