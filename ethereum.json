@@ -1,7 +1,8 @@
 {
   "contracts": "contracts",
   
-  "deploy": ["GitHubOracle"],
+  "deploy": ["GitHubOracleStorage", "GitRepositoryFactory", "GitHubOracle"],
+
   "plugins": {
     "oraclize": {
       "networkID": 161,
@@ -13,22 +14,23 @@
     "block": {
       "coinbase" : "0xdedb49385ad5b94a16f236a6890cf9e0b1e30392",
       "difficulty" : "0x0100",
-      "gasLimit" : 8141592,
-      "gasPrice": 60000000000
+      "gasLimit" : 6061924 ,
+      "gasPrice": 40000000000
     },
     "accounts": {
       "0xdedb49385ad5b94a16f236a6890cf9e0b1e30392": {
-        "balance": 1000000000000000000000000000000000000000000000000000000 ,
+        "balance": 100000000000000000000000000000000000000000000000000000000000000 ,
         "nonce": "0x1cf",
         "pkey": "0x974f963ee4571e86e5f9bc3b493e453db9c15e5bd19829a4ef9a790de0da0015", 
-        "default": false
+        "default": true
       },
       "0x1081108d14493ead0d4071cc757688ed7b111c32": {
         "balance": 1000000000000000000000000000000000000000000000000000000 ,
         "nonce": "0x1cf",
         "pkey": "0x6321991cf5102acf1efd6085da03b398a56cdc887b38acb1ba1452a50bc79343", 
-        "default": true
+        "default": false
       }
     }
   }
+  
 }
