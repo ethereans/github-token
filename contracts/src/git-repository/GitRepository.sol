@@ -15,6 +15,7 @@ pragma solidity ^0.4.8;
  * Released under GPLv3 License
  */
  
+import "lib/ethereans/bank/CollaborationBank.sol";
 import "lib/ethereans/management/Owned.sol";
 import "./GitRepositoryI.sol";
 import "./GitRepositoryToken.sol";
@@ -25,6 +26,9 @@ contract GitRepository is GitRepositoryI, Owned {
     //Address of the oracle, used for github login address lookup
     GitRepositoryStorage public db;
     GitRepositoryToken public token;
+    CollaborationBank public donationBank;
+    BountyBank
+    mapping (address=>uint) beers;
     
     uint256 public subscribers;
     uint256 public watchers;
@@ -37,9 +41,17 @@ contract GitRepository is GitRepositoryI, Owned {
         _;
     }
     
+    function () payable {
+        donationBank.deposit();
+    }
+    
+   
+    
     function GitRepository(uint256 _uid, string _name) {
        db = new GitRepositoryStorage(_uid,_name);
        token = new GitRepositoryToken(_name);
+       donationBank = new CollaborationBank(token);
+       token.linkLocker(donationBank);
     }
     
     //checks if a commit is already claimed
