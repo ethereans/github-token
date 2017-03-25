@@ -1,12 +1,7 @@
 pragma solidity ^0.4.0;
 
 /**
- * Abstract contract used for recieving donations or profits
- * Withdraw is divided by total tokens each account owns
- * Unlock period allows transfers
- * Lock period allow withdraws
- * Child contract that implement minting should use modifier not_locked in minting function
- * Inspired by ProfitContainer and Lockable by vDice
+ * Abstract contract to accept lock and linked locker. 
  * 
  * By Ricardo Guilherme Schmidt
  * Released under GPLv3 License
@@ -17,15 +12,14 @@ import "../management/Lockable.sol";
 
 contract LockerToken is AbstractToken, Lockable, Owned {
     Lockable public locker = this;
-    
-    
+
     function unlinkLocker() only_owner {
         locker = this;
     }
     function linkLocker(Lockable _locker) only_owner {
         locker = _locker;
     }
-    function lock(bool _lock) only_owner {
+    function setlock(bool _lock) only_owner {
         setLock(_lock);
     }
     
@@ -35,14 +29,14 @@ contract LockerToken is AbstractToken, Lockable, Owned {
     }
     
     //overwrite not allow transfer during lock
-    function transfer(address _to, uint256 _value) when_locked(true);
+    function transfer(address _to, uint256 _value) when_locked(true)
      returns (bool ok) {
         return super.transfer(_to,_value);
     }
     
     //overwrite not allow transfer during lock
-    function transferFrom(address _from, address _to, uint256 _value) 
-     returns (bool ok)  when_locked(true) {
+    function transferFrom(address _from, address _to, uint256 _value) when_locked(true)
+     returns (bool ok)  {
         return super.transferFrom(_from,_to,_value);
     }
     

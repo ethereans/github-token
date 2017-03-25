@@ -18,7 +18,7 @@ import "../token/LockerToken.sol";
 
 contract CollaborationBank is Bank, EpochLocker {
 
-    LockableToken public token;
+    LockerToken public token;
     //used for calculating balance and for checking if account withdrawn
     uint256 public currentPayEpoch;
     //stores the balance from the lock time
@@ -29,14 +29,15 @@ contract CollaborationBank is Bank, EpochLocker {
     event Withdrawn(address tokenHolder, uint256 amountPaidOut);
     event Deposited(address donator,uint256 value);
 
-    public CollaborationBank(LockableToken _token) EpochLockable(8 minutes,12 minutes){
+    function CollaborationBank(LockerToken _token) EpochLocker(8 minutes, 12 minutes){
         token = _token;
+        
     }
     
     //update the balance and payout epoch
     modifier update_epoch {
         if(currentPayEpoch < CURRENT_EPOCH) {
-            currentPayEpoch = _token.CURRENT_EPOCH();
+            currentPayEpoch = CURRENT_EPOCH;
             epochBalance = this.balance;
         }
         _;
@@ -51,7 +52,6 @@ contract CollaborationBank is Bank, EpochLocker {
     //check overflow in multiply
     function safeMultiply(uint256 _a, uint256 _b) private {
         if (!(_b == 0 || ((_a * _b) / _b) == _a)) throw;
-        _;
     }
     
     //allow deposit and call event
@@ -60,10 +60,6 @@ contract CollaborationBank is Bank, EpochLocker {
         deposit();
     }
 
-    function setLock(bool _lock){
-        token.setLock(_lock);
-        
-    }
     //withdraw if locked and not paid, updates epoch
     function withdrawal()
      external

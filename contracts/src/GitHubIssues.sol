@@ -4,15 +4,15 @@ pragma solidity ^0.4.8;
  * DO NOT USE: under development
  */
  import "./GitHubOracle.sol";
- import "./AbstractBounty.sol";
+
  
- contract GitHubIssues is AbstractBounty {
+ contract GitHubIssues {
      
     //Address of the oracle, used for github login address lookup
     GitHubOracle public oracle;
     //stores repository name, used for claim calls
     string private repository;
-    string private uid;
+    uint private uid;
     mapping (uint => Issue) issues;
      
     struct Issue {
@@ -36,10 +36,10 @@ pragma solidity ^0.4.8;
     }
     
     function setState(uint num, bool open){
-        issues[num] = open;
+        //issues[num] = open;
     }
     
     function placeBounty(uint num){
-        issues[num]
+        
     }
  }

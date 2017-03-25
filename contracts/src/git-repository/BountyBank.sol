@@ -1,15 +1,16 @@
 pragma solidity ^0.4.9; 
  
-import "lib/ethereans/management/Owned.sol"
+import "lib/ethereans/management/Owned.sol";
  
 contract BountyBank is Owned {
     
-    enum State {CLOSED, OPEN, CLAIMED};
+    enum State {CLOSED, OPEN, CLAIMED}
+    
     struct Bounty {
         State state;
         uint closedAt;
-        mapping (address => int) deposits;
-        mapping (address => int) claimers;
+        mapping (address => uint) deposits;
+        mapping (address => uint) claimers;
         uint balance;
         uint points;
      }
@@ -17,21 +18,21 @@ contract BountyBank is Owned {
     mapping (uint => Bounty) bounties;
     uint count = 0;
 
-    function deposit(int num) payable {
-         if(bounties[num].state != OPEN || msg.value == 0) throw;
+    function deposit(uint num) payable {
+         if(bounties[num].state != State.OPEN || msg.value == 0) throw;
          bounties[num].deposits[msg.sender] += msg.value;
          bounties[num].balance += msg.value;
     }
 
-    function withdraw(int num) {
+    function withdraw(uint num) {
          uint value = bounties[num].deposits[msg.sender];
-         if(bounties[num].state != OPEN || value == 0) throw;
+         if(bounties[num].state != State.OPEN || value == 0) throw;
          delete bounties[num].deposits[msg.sender];
          if(!msg.sender.send(value)) throw;
     }
 
     function open(uint num) only_owner {
-         if(bounties[num].claimed == true) throw;
+         if(bounties[num].state == State.CLAIMED) throw;
          bounties[num].state = State.OPEN;
     }
 
@@ -43,7 +44,7 @@ contract BountyBank is Owned {
 
     function close(uint num) only_owner {
          if(bounties[num].state == State.CLAIMED) throw;
-         bounties[num].close = true;
+         bounties[num].state = State.CLOSED;
          bounties[num].closedAt = now;
     }
      

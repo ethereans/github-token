@@ -80,7 +80,7 @@ contract GitHubOracle is Owned, usingOraclize {
     }  
 
 
-    function getRepository(uint id) constant returns (address){
+    function getRepository(uint projectId) constant returns (address){
         return db.getRepositoryAddress(projectId);
     } 
     

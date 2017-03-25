@@ -17,6 +17,7 @@ pragma solidity ^0.4.8;
  
 import "lib/ethereans/bank/CollaborationBank.sol";
 import "lib/ethereans/management/Owned.sol";
+import "./BountyBank.sol";
 import "./GitRepositoryI.sol";
 import "./GitRepositoryToken.sol";
 import "./GitRepositoryStorage.sol";
@@ -27,7 +28,7 @@ contract GitRepository is GitRepositoryI, Owned {
     GitRepositoryStorage public db;
     GitRepositoryToken public token;
     CollaborationBank public donationBank;
-    BountyBank
+    BountyBank public bountyBank;
     mapping (address=>uint) beers;
     
     uint256 public subscribers;
@@ -43,15 +44,15 @@ contract GitRepository is GitRepositoryI, Owned {
     
     function () payable {
         donationBank.deposit();
+        beers[msg.sender] = msg.value;
     }
-    
-   
-    
+
     function GitRepository(uint256 _uid, string _name) {
        db = new GitRepositoryStorage(_uid,_name);
        token = new GitRepositoryToken(_name);
        donationBank = new CollaborationBank(token);
        token.linkLocker(donationBank);
+       bountyBank = new BountyBank();
     }
     
     //checks if a commit is already claimed
@@ -78,7 +79,6 @@ contract GitRepository is GitRepositoryI, Owned {
         subscribers = _subscribers;
         watchers = _watchers;
     }
-    
 
     
 }
