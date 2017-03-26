@@ -20,16 +20,15 @@ import "lib/JSONLib.sol";
 
 import "lib/oraclize/oraclizeAPI_0.4.sol";
 import "lib/ethereans/management/Owned.sol";
-import "./git-repository/GitRepositoryFactoryI.sol";
+import "./factory/GRFactory.sol";
+import "./factory/DBFactory.sol";
 import "./storage/GitHubOracleStorageI.sol";
-
 
 
 contract GitHubOracle is Owned, usingOraclize {
 
     using StringLib for string;
 
-    GitRepositoryFactoryI public gitRepositoryFactoryI;
     GitHubOracleStorageI public db;
 
     enum OracleType { SET_REPOSITORY, SET_USER, CLAIM_COMMIT, UPDATE_ISSUE }
@@ -53,9 +52,8 @@ contract GitHubOracle is Owned, usingOraclize {
         string commitid;
     }
     
-    function GitHubOracle(GitHubOracleStorageI _db, GitRepositoryFactoryI _gitRepositoryFactoryI){ //
-       gitRepositoryFactoryI = _gitRepositoryFactoryI;
-       db = _db;
+    function GitHubOracle(){ //
+       db = DBFactory.newStorage();
     }
     
     //register or change a github user ethereum address 100000000000000000
@@ -78,7 +76,6 @@ contract GitHubOracle is Owned, usingOraclize {
         bytes32 ocid = oraclize_query("URL", StringLib.concat("json(https://api.github.com/repos/",_repository,credentials,").$.id,full_name,watchers,subscribers_count"),4000000);
         claimType[ocid] = OracleType.SET_REPOSITORY;
     }  
-
 
     function getRepository(uint projectId) constant returns (address){
         return db.getRepositoryAddress(projectId);
@@ -105,14 +102,13 @@ contract GitHubOracle is Owned, usingOraclize {
 
     
     function bountyIssue(uint repositoryId, uint issueId) payable{
-        
+
     }
 
 
     //Internal Functions
-        
-
     //
+
     event OracleEvent(bytes32 myid, string result, bytes proof);
     //oraclize response callback
 
@@ -148,7 +144,7 @@ contract GitHubOracle is Owned, usingOraclize {
     }
     
     event GitRepositoryRegistered(uint256 projectId, string full_name, uint256 watchers, uint256 subscribers);    
-    function _setRepository(bytes32 myid, string result) //[83725290, "ethereans/github-token", 4, 2]
+    function _setRepository(bytes32 myid, string result) internal //[83725290, "ethereans/github-token", 4, 2]
     {
         uint256 projectId; string memory full_name; uint256 watchers; uint256 subscribers; 
         uint256 ownerId; string memory name; //TODO
@@ -161,7 +157,7 @@ contract GitHubOracle is Owned, usingOraclize {
         address repository = db.getRepositoryAddress(projectId);
         if(repository == 0x0){
             GitRepositoryRegistered(projectId,full_name,watchers,subscribers);
-            repository = gitRepositoryFactoryI.newGitRepository(projectId,full_name);
+            repository = GRFactory.newGitRepository(projectId,full_name);
             db.addRepository(projectId,ownerId,name,full_name,repository);
         }
         GitRepositoryI(repository).setStats(subscribers,watchers);

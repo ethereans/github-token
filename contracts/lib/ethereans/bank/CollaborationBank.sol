@@ -17,13 +17,13 @@ import "../management/EpochLocker.sol";
 import "../token/LockerToken.sol";
 
 contract CollaborationBank is Bank, EpochLocker {
-
+    
     LockerToken public token;
     //used for calculating balance and for checking if account withdrawn
     uint256 public currentPayEpoch;
     //stores the balance from the lock time
     uint256 public epochBalance;
-    //used for hecking if account withdrawn
+    //used for checking if account withdrawn
     mapping (address => uint) lastPaidOutEpoch;
     //events
     event Withdrawn(address tokenHolder, uint256 amountPaidOut);
