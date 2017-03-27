@@ -10,8 +10,25 @@ pragma solidity ^0.4.8;
  */
 
 import "lib/ethereans/management/Owned.sol";
-import "./GitHubOracleStorageI.sol";
-contract GitHubOracleStorage is GitHubOracleStorageI, Owned {
+
+contract DGitDBI {
+    function addRepository(uint256 _id, uint256 _owner, string _name, string _full_name, address _addr);
+    function addUser(uint256 _id, string _login, uint8 _type, address _addr);
+    function setRepositoryAddress(uint256 _repositoryId, address _repositoryAddress);
+    function setRepositoryName(uint256 _repositoryId, string _full_name, string _name);
+    function setUserAddress(uint userId, address account);
+    function setUserName(uint256 _userId, string _name);
+    function getRepositoryId(string _full_name) constant returns (uint256);
+    function getRepositoryName(uint256 _id)  constant returns (string);
+    function getRepositoryAddress(uint256 _id) constant returns(address);
+    function getRepositoryAddress(string _full_name) constant returns(address);
+    function getUserAddress(uint256 _id) constant returns(address);
+    function getUserAddress(string _login) constant returns(address);
+    function getClaimed(uint256 _repoid, bytes20 _commitid) constant returns (uint);
+    function setClaimed(uint256 _repoid, bytes20 _commitid, uint _userid, uint _points);
+}
+
+contract DGitDB is DGitDBI, Owned {
     
     mapping (string => uint256) repositoryNames;
     mapping (string => uint256) userNames;
@@ -23,24 +40,40 @@ contract GitHubOracleStorage is GitHubOracleStorageI, Owned {
         string name;
         string full_name;
         address addr;
-        uint256 claimed;
+        uint points;
+        mapping (bytes20 => Commit) commits;
+        
     }
     
+    struct Commit {
+        uint points;
+        uint userId;
+    }
+
     struct User {
         string login;
         uint8 utype;
         address addr;
-        uint256 claimed;
+    }
+
+     function setClaimed(uint256 _repoid, bytes20 _commitid, uint _userid, uint _points)
+     only_owner {
+        repositories[_repoid].commits[_commitid].userId = _userid;
+        repositories[_repoid].commits[_commitid].points = _points;
+        repositories[_repoid].points += _points;
     }
     
+    function getClaimed(uint256 _repoid, bytes20 _commitid) constant returns (uint){
+        return repositories[_repoid].commits[_commitid].userId;   
+    }
 
     function addRepository(uint256 _id, uint256 _owner, string _name, string _full_name, address _addr) only_owner {
-        repositories[_id] = Repository({owner:_owner,name:_name,full_name:_full_name,addr:_addr,claimed:0});
+        repositories[_id] = Repository({owner:_owner,name:_name,full_name:_full_name,addr:_addr,points:0});
         repositoryNames[_full_name] = _id;
     }
     
     function addUser(uint256 _id, string _login, uint8 _utype, address _addr) only_owner{
-        users[_id] = User({login:_login,utype:_utype,addr:_addr, claimed:0});
+        users[_id] = User({login:_login,utype:_utype,addr:_addr});
         userNames[_login] = _id;
     }
     
@@ -86,6 +119,14 @@ contract GitHubOracleStorage is GitHubOracleStorageI, Owned {
     }
     function getRepositoryName(uint256 _id)  constant returns (string){
         return repositories[_id].full_name;
+    }
+    
+}
+
+library DBFactory {
+ 
+    function newStorage() returns (DGitDBI){
+        return new DGitDB();
     }
     
 }
