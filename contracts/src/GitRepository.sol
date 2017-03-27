@@ -18,18 +18,25 @@ pragma solidity ^0.4.8;
 import "lib/ethereans/bank/CollaborationBank.sol";
 import "lib/ethereans/management/Owned.sol";
 import "./BountyBank.sol";
-import "./GitRepositoryI.sol";
 import "./GitRepositoryToken.sol";
-import "./GitRepositoryStorage.sol";
+
+
+contract GitRepositoryI {
+    function isClaimed(bytes20 _commitid) constant returns (bool);
+    function claim(bytes20 _commitid, address _user, uint _total);
+    function setStats(uint256 _subscribers, uint256 _watchers);
+}
 
 contract GitRepository is GitRepositoryI, Owned {
 
-    //Address of the oracle, used for github login address lookup
-    GitRepositoryStorage public db;
     GitRepositoryToken public token;
     CollaborationBank public donationBank;
     BountyBank public bountyBank;
-    mapping (address=>uint) beers;
+    mapping (address=>uint) donators;
+
+    string public name;
+    uint256 public uid;
+    mapping (bytes20 => bool) public commits;
     
     uint256 public subscribers;
     uint256 public watchers;
@@ -44,11 +51,12 @@ contract GitRepository is GitRepositoryI, Owned {
     
     function () payable {
         donationBank.deposit();
-        beers[msg.sender] = msg.value;
+        donators[msg.sender] += msg.value;
     }
 
     function GitRepository(uint256 _uid, string _name) {
-       db = new GitRepositoryStorage(_uid,_name);
+       uid = _uid;
+       name = _name;
        token = new GitRepositoryToken(_name);
        donationBank = new CollaborationBank(token);
        token.linkLocker(donationBank);
@@ -59,18 +67,16 @@ contract GitRepository is GitRepositoryI, Owned {
     function isClaimed(bytes20 _commitid) 
      constant 
      returns (bool) {
-        return db.commits(_commitid) != 0x0;
+        return commits[_commitid];
     }   
 
     //oracle claim request
     function claim(bytes20 _commitid, address _user, uint _total) 
      only_owner {
-        if(_total > 0 && !token.lock()){
-            if(_user != 0x0 && db.commits(_commitid) != 0x0){
-                Claim(_commitid);
-                db.setClaimed(_commitid,_user);
-                token.mint(_user, _total);
-            }
+        if(_total > 0 && !token.lock() && _user != 0x0 && !commits[_commitid]){
+            Claim(_commitid);
+            commits[_commitid] = true;
+            token.mint(_user, _total);
         }
     }
     
@@ -79,6 +85,23 @@ contract GitRepository is GitRepositoryI, Owned {
         subscribers = _subscribers;
         watchers = _watchers;
     }
-
     
+    function bountyState(uint issue, bool open) only_owner {
+       if (open) bountyBank.open(issue);
+       else bountyBank.close(issue);
+    }
+    
+    function bountyState(uint issue, address claimer, uint points) only_owner {
+       bountyBank.setClaimer(issue,claimer,points);
+    }
+    
+}
+
+library GitFactory {
+
+    function newGitRepository(uint256 _uid, string _name) returns (GitRepositoryI){
+        GitRepository repo = new GitRepository(_uid,_name);
+        return repo;
+    }
+
 }
