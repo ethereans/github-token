@@ -17,8 +17,8 @@ pragma solidity ^0.4.8;
  
 import "lib/oraclize/oraclizeAPI_0.4.sol";
 import "lib/ethereans/management/Owned.sol";
-import "./GitHubAPI.sol";
 import "./DGitDB.sol";
+import "./GitHubAPI.sol";
 import "./GitRepository.sol";
 
 contract DGit is Owned, DGitI {

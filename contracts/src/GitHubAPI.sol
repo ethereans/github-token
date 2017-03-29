@@ -61,7 +61,8 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
         //if (repoid == 0) throw;
         bytes20 commitid = _commitid.parseBytes20();
         //if(db.getClaimed(repoid,commitid) == 0) throw;
-        bytes32 ocid = oraclize_query("URL", StringLib.concat("json(https://api.github.com/repos/",_repository,"/commits/", _commitid, credentials).concat(").[author,stats].[id,total]"));
+        string memory commit_url = StringLib.concat("https://api.github.com/repos/",_repository,"/commits/", _commitid, credentials));
+        bytes32 ocid = oraclize_query("URL", StringLib.concat("[identity] ${[URL] json(",commit_url,").[author,stats].[id,total]}"));
         claimType[ocid] = OracleType.CLAIM_COMMIT;
         commitClaim[ocid] = CommitClaim( { repository: _repository, commitid:commitid});
     }
@@ -73,7 +74,7 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
     }  
 
     function updateIssue(string _repository, string issue) payable only_owner{
-         bytes32 ocid = oraclize_query("computation", [script, StringLib.concat("--reponame ",_repository, " --issueid ", issue, " --script issue-status").concat(" --client ", client, " --secret ", secret)]);
+         bytes32 ocid = oraclize_query("computation", [script, StringLib.concat("--reponame ",_repository, " --issueid ", issue, " --script issue-update").concat(" --client ", client, " --secret ", secret)]);
     }
     
     event OracleEvent(bytes32 myid, string result, bytes proof);
@@ -89,10 +90,17 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
             _claimCommit(myid, result);
         }else if(claimType[myid] == OracleType.SET_REPOSITORY){
             _setRepository(myid, result);
+        }else if(claimType[myid] == OracleType.UPDATE_ISSUE){
+            _updateIssue(myid, result);
         }
         delete claimType[myid];  //should always be deleted
     }
 
+    function _updateIssue(bytes32 myid, string result) 
+     internal {
+         
+     }
+    
     function _register(bytes32 myid, string result) 
      internal {
         uint256 userId; string memory login; address addrLoaded; 
