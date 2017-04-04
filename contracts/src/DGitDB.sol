@@ -24,8 +24,9 @@ contract DGitDBI {
     function getRepositoryAddress(string _full_name) constant returns(address);
     function getUserAddress(uint256 _id) constant returns(address);
     function getUserAddress(string _login) constant returns(address);
-    function getClaimed(uint256 _repoid, bytes20 _commitid) constant returns (uint);
-    function setClaimed(uint256 _repoid, bytes20 _commitid, uint _userid, uint _points);
+    function getClaimedHead(uint256 _repoid) constant returns (bytes20);
+    function getClaimedTail(uint256 _repoid) constant returns (bytes20);
+    function setClaimed(uint256 _repoid, bytes20 _head, bytes20 _tail, uint points);
 }
 
 contract DGitDB is DGitDBI, Owned {
@@ -41,14 +42,10 @@ contract DGitDB is DGitDBI, Owned {
         string full_name;
         address addr;
         uint points;
-        mapping (bytes20 => Commit) commits;
-        
+        bytes20 head;
+        bytes20 tail;
     }
     
-    struct Commit {
-        uint points;
-        uint userId;
-    }
 
     struct User {
         string login;
@@ -56,15 +53,18 @@ contract DGitDB is DGitDBI, Owned {
         address addr;
     }
 
-     function setClaimed(uint256 _repoid, bytes20 _commitid, uint _userid, uint _points)
+     function setClaimed(uint256 _repoid, bytes20 _head, bytes20 _tail, uint _points)
      only_owner {
-        repositories[_repoid].commits[_commitid].userId = _userid;
-        repositories[_repoid].commits[_commitid].points = _points;
+        repositories[_repoid].head = _head;
+        repositories[_repoid].tail = _tail;
         repositories[_repoid].points += _points;
     }
     
-    function getClaimed(uint256 _repoid, bytes20 _commitid) constant returns (uint){
-        return repositories[_repoid].commits[_commitid].userId;   
+    function getClaimedHead(uint256 _repoid) constant returns (bytes20){
+        return repositories[_repoid].head;
+    }
+    function getClaimedTail(uint256 _repoid) constant returns (bytes20){
+        return repositories[_repoid].tail;
     }
 
     function addRepository(uint256 _id, uint256 _owner, string _name, string _full_name, address _addr) only_owner {
