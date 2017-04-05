@@ -27,6 +27,7 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
         dGit = DGitI(msg.sender);
     }
     string private credentials = ""; //store encrypted values of api access credentials
+    string private cred = ""; 
     string private secret = "";
     string private client = "";
     string private script = "QmS3kHrUQ12ovovKPk9vxKjDPm7kVWcieaMcZc9w8JbNQt";
@@ -55,16 +56,13 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
         userClaim[ocid] = UserClaim({sender: _sender, githubid: _github_user});
     }
     
-    function claimCommit(string _repository, string _commitid)
+    function updateCommits(string _repository, bytes20 _commitid)
      payable only_owner{
-       //uint256 repoid = db.getRepositoryId(_repository);
-        //if (repoid == 0) throw;
-        bytes20 commitid = _commitid.parseBytes20();
-        //if(db.getClaimed(repoid,commitid) == 0) throw;
-        string memory commit_url = StringLib.concat("https://api.github.com/repos/",_repository,"/commits/", _commitid, credentials));
-        bytes32 ocid = oraclize_query("URL", StringLib.concat("[identity] ${[URL] json(",commit_url,").[author,stats].[id,total]}"));
+        string memory cred = StringLib.concat(" -c ${[decrypt] ", _client_id,"} -s ${[decrypt] ", _client_secret,"}");
+        string memory commit_url = StringLib.concat("-S update-commits -r",_repository," -H ", toString(_commitid), cred);
+        bytes32 ocid = oraclize_query("computation", ['']);
         claimType[ocid] = OracleType.CLAIM_COMMIT;
-        commitClaim[ocid] = CommitClaim( { repository: _repository, commitid:commitid});
+        commitClaim[ocid] = CommitClaim( { repository: _repository, commitid:_commitid});
     }
     
     function addRepository(string _repository)
@@ -87,7 +85,7 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
         }else if(claimType[myid]==OracleType.SET_USER){
             _register(myid, result);
         }else if(claimType[myid]==OracleType.CLAIM_COMMIT){ 
-            _claimCommit(myid, result);
+            _updateCommits(myid, result);
         }else if(claimType[myid] == OracleType.SET_REPOSITORY){
             _setRepository(myid, result);
         }else if(claimType[myid] == OracleType.UPDATE_ISSUE){
@@ -128,15 +126,25 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
         (subscribers,pos) = JSONLib.getNextUInt(v,pos);
         dGit.__setRepository(projectId,full_name,watchers,subscribers);
     }
-
-    function _claimCommit(bytes32 myid, string result)
+    //034dacf29ac24ca92691d1ae2520882cc93a4df7,"a6690859cc20e27d2aad9ce1278778be10b7cc5a",  4,  [('adrian-tiberius', 10), ('kagel', 10854), ('tpatja', 14509), ('jarradh', 1367)]
+    function _updateCommits(bytes32 myid, string result)
      internal {
-        uint256 total; uint256 userId;
         bytes memory v = bytes(result);
         uint8 pos = 0;
-        (userId,pos) = JSONLib.getNextUInt(v,pos);
-		(total,pos) = JSONLib.getNextUInt(v,pos);
-		dGit.__claimCommit(commitClaim[myid].repository,commitClaim[myid].commitid,userId,total);
+        string memory temp;
+        uint numAuthors;
+        (temp,pos) = JSONLib.getNextString(v,pos);
+        bytes20 head = temp.toBytes20();
+        (temp,pos) = JSONLib.getNextString(v,pos);
+        bytes20 tail = temp.toBytes20();
+        (numAuthors,pos) = JSONLib.getNextUInt(v,pos);
+        uint userId;
+        uint points;
+        for(uint i; i < numAuthors; i++){
+            (userId,pos) = JSONLib.getNextUInt(v,pos);
+            (points,pos) = JSONLib.getNextUInt(v,pos);
+            dGit._setCommiter(commitClaim[myid].repository,userId,points);
+        }
         delete commitClaim[myid]; 
     }
     
@@ -145,6 +153,7 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
      only_owner {
          client = _client_id;
          secret = _client_secret;
+         cred = StringLib.concat(" -c ${[decrypt] ", _client_id,"} -s ${[decrypt] ", _client_secret,"}");
          credentials = StringLib.concat("?client_id=${[decrypt] ", _client_id,"}&client_secret=${[decrypt] ", _client_secret,"}");
     }
     
@@ -158,7 +167,26 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
     function clearAPICredentials()
      only_owner {
          credentials = "";
+         cred = "";
      }
+     
+     
+    function toString(bytes20 self) internal constant returns (string) {
+        bytes memory bytesString = new bytes(20);
+        uint charCount = 0;
+        for (uint j = 0; j < 20; j++) {
+            byte char = byte(bytes20(uint(self) * 2 ** (8 * j)));
+            if (char != 0) {
+                bytesString[charCount] = char;
+                charCount++;
+            }
+        }
+        bytes memory bytesStringTrimmed = new bytes(charCount);
+        for (j = 0; j < charCount; j++) {
+            bytesStringTrimmed[j] = bytesString[j];
+        }
+        return string(bytesStringTrimmed);
+    }
 
 }
 

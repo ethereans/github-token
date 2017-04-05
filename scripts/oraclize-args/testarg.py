@@ -3,23 +3,26 @@ import json, urllib2, datetime
 from collections import defaultdict
 start = ''
 
-print "#############################"
-print "#############################"
-print "#############################"
-
 parser = argparse.ArgumentParser()
-parser.add_argument('--client')
-parser.add_argument('--secret')
-parser.add_argument('--script')
-parser.add_argument('--username')
-parser.add_argument('--userid')
-parser.add_argument('--repoid')
-parser.add_argument('--reponame')
-parser.add_argument('--issueid')
-parser.add_argument('--pullid')
-parser.add_argument('--commitid')
-parser.add_argument('--tail')
-parser.add_argument('--head')
+parser.add_argument('-S','--script')
+
+parser.add_argument('-U','--username')
+parser.add_argument('-u','--userid')
+
+parser.add_argument('-R','--repoid')
+parser.add_argument('-r','--reponame')
+
+parser.add_argument('-C','--commitid')
+
+parser.add_argument('-B','--branch')
+parser.add_argument('-T','--tail')
+parser.add_argument('-H','--head')
+
+parser.add_argument('-I','--issueid')
+parser.add_argument('-P','--pullid')
+
+parser.add_argument('-c','--client')
+parser.add_argument('-s','--secret')
 
 
 argn = []
@@ -142,6 +145,10 @@ def updateIssue(issueid):
 
 
 def updateCommits(branchname, head, tail):
+    if(branchname is None):
+        req = urllib2.Request(repo_link+auth)
+        repo = json.load(urllib2.urlopen(req))
+        branchname = json.dumps(repo['default_branch'])[1:-1]
     if(head is None and tail is not None): #tail only = error
         print "bad call"
         return
@@ -162,13 +169,14 @@ def updateCommits(branchname, head, tail):
         _head = tail
 
     commit_link = repo_link + "/commits/" + _head + auth
-    print commit_link
+    #print commit_link
     req = urllib2.Request(commit_link)
     _head = json.load(urllib2.urlopen(req))
     ntail = loadPoints(_head)
 
-    print head + "," + json.dumps(ntail['sha']) + ",", 
-    print points.items(),  
+    print json.dumps(head) + "," + json.dumps(ntail['sha']) + ", ", 
+    print str(len(points)) + ", ",
+    print json.dumps(points.items()), 
  
 
 #https://api.github.com/repos/status-im/github-oracle/compare/master...6e2528a9eb3fec21ca0679ec0c2a0935c2aa6656  COMPARE IF COMMIT IS IN `master`
@@ -194,7 +202,7 @@ def setClaimedChunk(head, tail):
         for commit in commits:
             if(claimed[commit['sha']] != True):
                 claimed[commit['sha']] = True
-                print "claimed "+str(count)+": "+commit['sha']
+                #print "claimed "+str(count)+": "+commit['sha']
                 count += 1
                 head = commit['sha']
                 if(len(commit['parents']) == 2):
@@ -216,11 +224,11 @@ def loadPoints(head):
             if (len(points) > 5 and points[author] == 0): break;
             if (len(head['parents']) < 2):
                 points[author] += int(json.dumps(head['stats']['total']))
-                print str(count) + ": " + head['sha'] +" +"+ str(head['stats']['total'])
-            else:
-                print str(count) + ": " + head['sha'] +" -"+ str(head['stats']['total'])
-        else:
-            print str(count) + ": " + head['sha'] +" x"+ str(head['stats']['total'])
+                #print str(count) + ": " + head['sha'] +" +"+ str(head['stats']['total'])
+            #else:
+                #print str(count) + ": " + head['sha'] +" -"+ str(head['stats']['total'])
+        #else:
+            #print str(count) + ": " + head['sha'] +" x"+ str(head['stats']['total'])
         for parent in head['parents']:    
             link_commit = json.dumps(parent['url'])[1:-1] + auth
             _commit = json.load(urllib2.urlopen(link_commit))
@@ -242,5 +250,5 @@ elif args.script == 'commit-points':
 elif args.script == 'commit-data':
     commitData(args.commitid)
 elif args.script== 'update-commits':
-    updateCommits("master", args.head, args.tail)
+    updateCommits(args.branch, args.head, args.tail)
 
