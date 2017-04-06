@@ -126,7 +126,7 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
         (subscribers,pos) = JSONLib.getNextUInt(v,pos);
         dGit.__setRepository(projectId,full_name,watchers,subscribers);
     }
-    //034dacf29ac24ca92691d1ae2520882cc93a4df7,"a6690859cc20e27d2aad9ce1278778be10b7cc5a",  4,  [('adrian-tiberius', 10), ('kagel', 10854), ('tpatja', 14509), ('jarradh', 1367)]
+    
     function _updateCommits(bytes32 myid, string result)
      internal {
         bytes memory v = bytes(result);
