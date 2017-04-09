@@ -14,6 +14,11 @@ library StringLib {
             result := mload(add(source, 32))
         }
     }
+    function toBytes20(string memory source) constant returns (bytes20 result) {
+        assembly {
+            result := mload(add(source, 20))
+        }
+    }
     function parseBytes20(string self) 
     constant returns (bytes20 bs) {
         bytes memory h = bytes(self);
