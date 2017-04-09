@@ -22,8 +22,7 @@ import "./GitRepositoryToken.sol";
 
 
 contract GitRepositoryI {
-    function isClaimed(bytes20 _commitid) constant returns (bool);
-    function claim(bytes20 _commitid, address _user, uint _total);
+    function claim(address _user, uint _total) returns (bool) ; 
     function setStats(uint256 _subscribers, uint256 _watchers);
 }
 
@@ -36,19 +35,10 @@ contract GitRepository is GitRepositoryI, Owned {
 
     string public name;
     uint256 public uid;
-    mapping (bytes20 => bool) public commits;
-    
+
     uint256 public subscribers;
     uint256 public watchers;
-    //claim event
-    event Claim(bytes32 commit);
 
-    //protect against double claiming
-    modifier not_claimed(bytes20 commitid) {
-        if(isClaimed(commitid)) throw;
-        _;
-    }
-    
     function () payable {
         donationBank.deposit();
         donators[msg.sender] += msg.value;
@@ -63,20 +53,15 @@ contract GitRepository is GitRepositoryI, Owned {
        bountyBank = new BountyBank();
     }
     
-    //checks if a commit is already claimed
-    function isClaimed(bytes20 _commitid) 
-     constant 
-     returns (bool) {
-        return commits[_commitid];
-    }   
 
     //oracle claim request
-    function claim(bytes20 _commitid, address _user, uint _total) 
-     only_owner {
-        if(_total > 0 && !token.lock() && _user != 0x0 && !commits[_commitid]){
-            Claim(_commitid);
-            commits[_commitid] = true;
+    function claim(address _user, uint _total) 
+     only_owner returns (bool) {
+        if(!token.lock() && _user != 0x0){
             token.mint(_user, _total);
+            return true;
+        }else{
+            return false;
         }
     }
     

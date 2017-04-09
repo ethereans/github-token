@@ -8,7 +8,7 @@ import "lib/ethereans/management/Owned.sol";
 
 contract GitHubAPI{
      function register(address _sender, string _github_user, string _gistid) payable;
-     function claimCommit(string _repository, string _commitid) payable;
+     function updateCommits(string _repository, bytes20 _commitid) payable;
      function addRepository(string _repository) payable;
      function updateIssue(string _repository, string issue) payable;
 }
@@ -16,7 +16,7 @@ contract GitHubAPI{
 contract DGitI {
     function __register(address addrLoaded, uint256 userId, string login);
     function __setRepository(uint256 projectId, string full_name, uint256 watchers, uint256 subscribers);
-    function __claimCommit(string repository, bytes20 commitid, uint userid, uint total);
+    function __newPoints(string repository, uint userId, uint total);
 }
 
 contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
@@ -58,9 +58,8 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
     
     function updateCommits(string _repository, bytes20 _commitid)
      payable only_owner{
-        string memory cred = StringLib.concat(" -c ${[decrypt] ", _client_id,"} -s ${[decrypt] ", _client_secret,"}");
         string memory commit_url = StringLib.concat("-S update-commits -r",_repository," -H ", toString(_commitid), cred);
-        bytes32 ocid = oraclize_query("computation", ['']);
+        bytes32 ocid = oraclize_query("computation", [script, commit_url]);
         claimType[ocid] = OracleType.CLAIM_COMMIT;
         commitClaim[ocid] = CommitClaim( { repository: _repository, commitid:_commitid});
     }
@@ -143,7 +142,7 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
         for(uint i; i < numAuthors; i++){
             (userId,pos) = JSONLib.getNextUInt(v,pos);
             (points,pos) = JSONLib.getNextUInt(v,pos);
-            dGit._setCommiter(commitClaim[myid].repository,userId,points);
+            dGit.__newPoints(commitClaim[myid].repository,userId,points);
         }
         delete commitClaim[myid]; 
     }

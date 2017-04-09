@@ -25,8 +25,12 @@ contract DGitDBI {
     function getUserAddress(uint256 _id) constant returns(address);
     function getUserAddress(string _login) constant returns(address);
     function getClaimedHead(uint256 _repoid) constant returns (bytes20);
+    function getClaimedHead(string _full_name) constant returns (bytes20);
     function getClaimedTail(uint256 _repoid) constant returns (bytes20);
     function setClaimed(uint256 _repoid, bytes20 _head, bytes20 _tail, uint points);
+    function setPending(uint256 _repoid, uint256 _userid, uint256 _points);
+    function setPending(string _full_name, uint256 _userid, uint256 _points);
+    function claimPending(uint256 _repoid, uint256 _userid) returns (uint256 points);
 }
 
 contract DGitDB is DGitDBI, Owned {
@@ -44,6 +48,7 @@ contract DGitDB is DGitDBI, Owned {
         uint points;
         bytes20 head;
         bytes20 tail;
+        mapping (uint256 => uint256) pending;
     }
     
 
@@ -59,16 +64,29 @@ contract DGitDB is DGitDBI, Owned {
         repositories[_repoid].tail = _tail;
         repositories[_repoid].points += _points;
     }
+    function setPending(uint256 _repoid, uint256 _userid, uint256 _points){
+        repositories[_repoid].pending[_userid] += _points;
+    }
+    function setPending(string _full_name, uint256 _userid, uint256 _points){
+        repositories[repositoryNames[_full_name]].pending[_userid] += _points;
+    }
+    function claimPending(uint256 _repoid, uint256 _userid) returns (uint256 points){
+        points = repositories[_repoid].pending[_userid];
+        delete repositories[_repoid].pending[_userid];
+    }
     
     function getClaimedHead(uint256 _repoid) constant returns (bytes20){
         return repositories[_repoid].head;
+    }
+    function getClaimedHead(string _full_name) constant returns (bytes20){
+        return repositories[repositoryNames[_full_name]].head;
     }
     function getClaimedTail(uint256 _repoid) constant returns (bytes20){
         return repositories[_repoid].tail;
     }
 
     function addRepository(uint256 _id, uint256 _owner, string _name, string _full_name, address _addr) only_owner {
-        repositories[_id] = Repository({owner:_owner,name:_name,full_name:_full_name,addr:_addr,points:0});
+        repositories[_id] = Repository({owner:_owner,name:_name,full_name:_full_name,addr:_addr,points:0,head:0,tail:0});
         repositoryNames[_full_name] = _id;
     }
     
@@ -101,7 +119,6 @@ contract DGitDB is DGitDBI, Owned {
         users[_userId].login = _name;
     }
     
-        
     function getUserAddress(uint256 _id) constant returns(address){
         return users[_id].addr;
     }
@@ -124,9 +141,7 @@ contract DGitDB is DGitDBI, Owned {
 }
 
 library DBFactory {
- 
     function newStorage() returns (DGitDBI){
         return new DGitDB();
     }
-    
 }

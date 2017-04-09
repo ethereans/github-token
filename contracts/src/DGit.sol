@@ -34,8 +34,8 @@ contract DGit is Owned, DGitI {
     function register(string _github_user, string _gistid) payable{
         gitHubApi.register.value(msg.value)(msg.sender,_github_user,_gistid);
     }
-    function claimCommit(string _repository, string _commitid) payable{
-        gitHubApi.claimCommit.value(msg.value)(_repository,_commitid);
+    function updateCommits(string _repository) payable{
+        gitHubApi.updateCommits.value(msg.value)(_repository,db.getClaimedHead(_repository));
     }
     function addRepository(string _repository) payable{
         gitHubApi.addRepository.value(msg.value)(_repository);
@@ -75,12 +75,22 @@ contract DGit is Owned, DGitI {
         GitRepositoryI(repository).setStats(subscribers,watchers);
     }
 
-    event NewClaim(string repository, bytes20 commitid, uint userId, uint total );
-    function __claimCommit(string repository, bytes20 commitid, uint userId, uint total)
+    event NewPoints(string repository, uint userId, uint total);
+    function __newPoints(string repository, uint userId, uint total)
      only_gitapi {
-		NewClaim(repository,commitid,userId,total);
+		NewPoints(repository,userId,total); 
 		GitRepositoryI repoaddr = GitRepositoryI(db.getRepositoryAddress(repository));
-		repoaddr.claim(commitid, db.getUserAddress(userId), total);
+		if(!repoaddr.claim(db.getUserAddress(userId), total)){ //try to claim points
+		    db.setPending(repository, userId, total); //set as a pending points
+		}
+    }
+    
+    //claims pending points
+    function claimPending(uint repoId, uint userId){
+        GitRepositoryI repoaddr = GitRepositoryI(db.getRepositoryAddress(repoId));
+        uint total = db.claimPending(repoId,userId);
+        if(!repoaddr.claim(db.getUserAddress(userId), total)) throw;
+        
     }
 
 }
