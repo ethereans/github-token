@@ -51,27 +51,26 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
   
     function register(address _sender, string _github_user, string _gistid)
      payable only_owner{
-        bytes32 ocid = oraclize_query("nested", StringLib.concat("[identity] ${[URL] https://gist.githubusercontent.com/",_github_user,"/",_gistid,"/raw/}, ${[URL] json(https://api.github.com/gists/").concat(_gistid,credentials,").owner.[id,login]}"));
-        claimType[ocid] = OracleType.SET_USER;
-        userClaim[ocid] = UserClaim({sender: _sender, githubid: _github_user});
+        StringLib.concat(_github_user,",",_gistid);
+        bytes32 ocid = oraclize_query("computation", [script, "user-add", _github_user.concat(",",_gistid), cred]);
+        
     }
     
     function updateCommits(string _repository, bytes20 _commitid)
      payable only_owner{
-        string memory commit_url = StringLib.concat("-S update-commits -r",_repository," -H ", toString(_commitid), cred);
-        bytes32 ocid = oraclize_query("computation", [script, commit_url]);
+        bytes32 ocid = oraclize_query("computation", [script, "repo-update",_repository.concat(",", toString(_commitid)),cred]);
         claimType[ocid] = OracleType.CLAIM_COMMIT;
         commitClaim[ocid] = CommitClaim( { repository: _repository, commitid:_commitid});
     }
     
     function addRepository(string _repository)
      payable only_owner{
-        bytes32 ocid = oraclize_query("URL", StringLib.concat("json(https://api.github.com/repos/",_repository,credentials,").$.id,full_name,watchers,subscribers_count"),4000000);
+        bytes32 ocid = oraclize_query("computation", [script, "repo-add", _repository, cred],4000000);
         claimType[ocid] = OracleType.SET_REPOSITORY;
     }  
 
     function updateIssue(string _repository, string issue) payable only_owner{
-         bytes32 ocid = oraclize_query("computation", [script, StringLib.concat("--reponame ",_repository, " --issueid ", issue, " --script issue-update").concat(" --client ", client, " --secret ", secret)]);
+         bytes32 ocid = oraclize_query("computation", [script, "issue-update",_repository.concat(",",issue),cred]);
     }
     
     event OracleEvent(bytes32 myid, string result, bytes proof);
@@ -152,7 +151,7 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
      only_owner {
          client = _client_id;
          secret = _client_secret;
-         cred = StringLib.concat(" -c ${[decrypt] ", _client_id,"} -s ${[decrypt] ", _client_secret,"}");
+         cred = StringLib.concat("${[decrypt] ", _client_id,"},${[decrypt] ", _client_secret,"}");
          credentials = StringLib.concat("?client_id=${[decrypt] ", _client_id,"}&client_secret=${[decrypt] ", _client_secret,"}");
     }
     

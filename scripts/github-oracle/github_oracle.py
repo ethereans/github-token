@@ -1,101 +1,173 @@
-import os, argparse
+import sys, os, argparse
 import json, urllib2, datetime
 from collections import defaultdict
 start = ''
-
-script = os.environ['ARG0']
-args = os.environ['ARG1']
-auth = os.environ['ARG2']
-
-
-if(auth):
-    #check if is client secret or token
-
+try:
+    argn = int(os.environ['ARGN']);
+except KeyError:
+    sys.exit("400 Error") #bad call
+    
+if(argn < 2): 
+    sys.exit("404 Error") #no default function
 
 
+def oAuth(client,secret,code):
+    # POST https://github.com/login/oauth/access_token 
+    # { "Accept": "application/json", "client_id" : client, "client_secret" : secret, "code": code }
+    # RESPONSE {"access_token":"e72e16c7e42f292c6912e7710c838347ae178b4a", "scope":"repo,gist", "token_type":"bearer"}
+    sys.exit("501 Not implemented")
 
+#global    
+points = defaultdict(int)      
+claimed = defaultdict(bool) 
+count = 0
 repo_link = ""
-if(args):
-    repo_link = "https://api.github.com/repos/" + args.reponame
-else:
-    repo_link = "https://api.github.com/repositories/" + args.repoid
 
+#load credentials
+auth = 0 
+if(argn > 2): 
+    auth = [x.strip() for x in os.environ['ARG2'].split(',')]
+    if(len(auth) == 3): #is token
+        client = auth[0]
+        secret = auth[1]    
+        code = auth[2]
+        oAuth(client,secret,code)
+        auth = 2
+       
+    elif(len(auth) == 2): #is secret
+        client = auth[0]
+        secret = auth[1] 
+        auth = 1
+    else:
+        auth = 0
+    
 
+args = os.environ['ARG1']
 
+def requestAPI(api_link, arguments_get = [], arguments_post = []):
+    if(auth == 1):
+        arguments_get += [["client_id",client],["client_secret",secret]]
+    #if(auth == 2):
+    #    arguments_post += [["Access-Token",token]]
+        
+    if(len(arguments_get) > 0):
+        api_link += "?"
+        for argument in arguments_get:
+            api_link += argument[0]+"="+argument[1]
+        
+    
+    req = urllib2.Request(api_link)
+    if(len(arguments_post) > 0):
+        for argument in arguments_post:
+            req.add_header(argument[0], argument[1])
+    
+    return urllib2.urlopen(req)
+            
 
-if script == 'issue-status':
-    issueStatus(args.issueid)
-elif script == 'issue-commits':  
-    issueCommits(args.issueid)
-elif script == 'related-issues':
-    relatedIssues(args.issueid) 
-elif script == 'commit-points':
-    pullCommitPoints(args.pullid)
-elif script == 'commit-data':
-    commitData(args.commit)
+def getRepositoryURL(repository, name = True):
+    repo_link = ""
+    if(name):
+        repo_link = "https://api.github.com/repos/" 
+    else:
+        repo_link = "https://api.github.com/repositories/"
+    return repo_link + repository
 
-
-
-
-
-
-
-def relatedIssues(issue):
-    link_issue = repo_link + "/issues/" + issue + "/timeline" + auth
-    print link_issue
-    req = urllib2.Request(link_issue)
-    req.add_header("Accept", "application/vnd.github.mockingbird-preview")
-    issue = json.load(urllib2.urlopen(req))
-    for elem in issue:
-        if(elem["event"] == "cross-referenced"):
-            if(elem["source"]["type"] == "issue"):
-                #print elem["source"]["issue"]["number"];
-                pullCommitPoints(json.dumps(elem["source"]["issue"]["number"]))
+    
+def repositoryAdd(full_name):
+    repository = json.load(requestAPI(getRepositoryURL(full_name)))
+    print "["+json.dumps(repository['id'])+",",
+    print json.dumps(repository['full_name'])+",",
+    print json.dumps(repository['watchers_count'])+",",
+    print json.dumps(repository['stargazers_count'])+"]"
+    sys.exit()
    
     
+def updateCommits(full_name, branch_name, head, tail):
+    global repo_link
+    repo_link = getRepositoryURL(full_name);
+    if(branch_name is None):
+        repo = json.load(requestAPI(repo_link))
+        branch_name = json.dumps(repo['default_branch'])[1:-1]
+    if(head is None and tail is not None): #tail only = error
+        sys.exit("400 Error") 
+    elif(head is None and tail is None): #no head and no tail (new) = from latest head to reachable tails
+        branches_link = repo_link + "/branches/" + branch_name
+        branch = json.load(requestAPI(branches_link))
+        _head = json.dumps(branch['commit']['sha'])[1:-1]
+        head = _head
+    elif(head is not None and tail is None): #head only (sync) = from latestHead to head  
+        setClaimedChunk(head, "")
+        branches_link = repo_link + "/branches/" + branch_name 
+        branch = json.load(requestAPI(branches_link))
+        _head = json.dumps(branch['commit']['sha'])[1:-1]
+        head = _head
+    elif(tail is not None and head is not None): #head and tail (continue) = continue from tail
+        _head = tail
 
-def issueStatus(issue):
-    link_issue = repo_link + "/issues/" + issue + auth
-    issue = json.load(urllib2.urlopen(link_issue))
-    if(issue['state'] == "closed"):
-        print datetime.datetime.strptime( json.dumps(issue['closed_at'])[1:-1], "%Y-%m-%dT%H:%M:%SZ" ).strftime('%s') +","+ json.dumps(issue['closed_by']['login'])
-    else:
-        print "open"
+    commit_link = repo_link + "/commits/" + _head 
+    #print commit_link
+    req = urllib2.Request(commit_link)
+    ntail = loadPoints(json.load(requestAPI(commit_link)))
+
+    print json.dumps(head) + "," + json.dumps(ntail['sha']) + ", ", 
+    print str(len(points)) + ", ",
+    print json.dumps(points.items()), 
+
+def setClaimedChunk(head, tail):
+    global repo_link
+    global count
+    global claimed
     
-    
-def pullCommitPoints(pr):
-    link_pull = repo_link + "/pulls/" + pr + auth
-    pull = json.load(urllib2.urlopen(link_pull))
-    if(pull['merged_at']):
-        link_pulls_commits = repo_link + "/pulls/" + pr + "/commits" +auth
-        points = defaultdict(int)
-        commits = json.load(urllib2.urlopen(link_pulls_commits))
+    while (tail != head):
+        commit_link = repo_link + "/commits"
+        commits = json.load(requestAPI(commit_link, [['per_page','100'],["sha",head]]));
         for commit in commits:
-            if(commit['url']):
-                link_commit = json.dumps(commit['url'])[1:-1] +auth
-                _commit = json.load(urllib2.urlopen(link_commit))
-                author = json.dumps(_commit['author']['login'])[1:-1]
-                points[author] += int(json.dumps(_commit['stats']['total']))
-        print points.items()
+            if(claimed[commit['sha']] != True):
+                claimed[commit['sha']] = True
+                #print "claimed "+str(count)+": "+commit['sha']
+                count += 1
+                head = commit['sha']
+                if(len(commit['parents']) == 2):
+                    setClaimedChunk("", json.dumps(commit['parents'])[1][1:-1])
+                if (tail == head): 
+                    break
+        if(len(commits) < 100):
+            break
+    return head
 
+def loadPoints(head):
+    global count
+    global claimed
+    while (claimed[head['sha']] == False and count < 1000):
+        claimed[head['sha']] = True
+        count += 1
+        if (head['author'] is not None):
+            author = json.dumps(head['author']['login'])[1:-1]
+            if (len(points) > 5 and points[author] == 0): break;
+            if (len(head['parents']) < 2):
+                points[author] += int(json.dumps(head['stats']['total']))
+        for parent in head['parents']:    
+            commit_link = json.dumps(parent['url'])[1:-1]
+            _commit = json.load((requestAPI(commit_link)))
+            head = loadPoints(_commit)
+    return head
 
-def issueCommits(args.issueid):
-    link_issue = repo_link + "/issues/" + issue + "/timeline" + auth
-    req = urllib2.Request(link_issue)
-    req.add_header("Accept", "application/vnd.github.mockingbird-preview")
-    issue = json.load(urllib2.urlopen(req))
-    for elem in issue:
-        if(elem["event"] == "cross-referenced"):
-            if(elem["source"]["type"] == "issue"):
-                #print elem["source"]["issue"]["number"];
-                pullCommitPoints(json.dumps(elem["source"]["issue"]["number"]))
+script = os.environ['ARG0']
+args = [x.strip() for x in os.environ['ARG1'].split(',')]
 
-def commitData(commit):
-    link_commit = repo_link +"/commits/"+ commit;
-    req = urllib2.Request(link_commit)
-    req.add_header("Accept", "application/vnd.github.mockingbird-preview")
-    commit = json.load(urllib2.urlopen(req))
-    print json.dumps(commit)
-
-
-
+if script == 'repo-update':
+    full_name=args[0]
+    branch_name=None
+    head=None
+    tail=None
+    try:
+        branch_name=args[1]
+        head=args[2]
+        tail=args[3]
+    except IndexError:
+        print '',
+    updateCommits(full_name, branch_name, head, tail)
+elif script == 'repo-add':
+    repositoryAdd(args[0])
+else:
+    sys.exit("501 Not implemented")
