@@ -3,76 +3,73 @@ import json, urllib2, datetime
 from collections import defaultdict
 start = ''
 try:
-    argn = int(os.environ['ARGN']);
+    argn = int(os.environ['ARGN'])
 except KeyError:
     sys.exit("400 Error") #bad call
-    
-if(argn < 2): 
+if argn < 2:
     sys.exit("404 Error") #no default function
 
 
-def oAuth(client,secret,code):
-    # POST https://github.com/login/oauth/access_token 
+def oAuth(client, secret, code):
+    # POST https://github.com/login/oauth/access_token
     # { "Accept": "application/json", "client_id" : client, "client_secret" : secret, "code": code }
     # RESPONSE {"access_token":"e72e16c7e42f292c6912e7710c838347ae178b4a", "scope":"repo,gist", "token_type":"bearer"}
     sys.exit("501 Not implemented")
 
-#global    
-points = defaultdict(int)      
-claimed = defaultdict(bool) 
+#global
+points = defaultdict(int)
+claimed = defaultdict(bool)
 count = 0
 repo_link = ""
 
 #load credentials
-auth = 0 
-if(argn > 2): 
+auth = 0
+if argn > 2:
     auth = [x.strip() for x in os.environ['ARG2'].split(',')]
-    if(len(auth) == 3): #is token
+    if len(auth) == 3: #is token
         client = auth[0]
-        secret = auth[1]    
+        secret = auth[1]
         code = auth[2]
-        oAuth(client,secret,code)
+        oAuth(client, secret, code)
         auth = 2
-       
-    elif(len(auth) == 2): #is secret
+    elif len(auth) == 2: #is secret
         client = auth[0]
-        secret = auth[1] 
+        secret = auth[1]
         auth = 1
     else:
         auth = 0
-    
 
 args = os.environ['ARG1']
 
-def requestAPI(api_link, arguments_get = [], arguments_post = []):
-    if(auth == 1):
-        arguments_get += [["client_id",client],["client_secret",secret]]
+def requestAPI(api_link, arguments_get=None, arguments_post=None):
+    if arguments_get is None:
+        arguments_get = []
+    if auth == 1:
+        arguments_get += [["client_id", client], ["client_secret", secret]]
     #if(auth == 2):
     #    arguments_post += [["Access-Token",token]]
-        
-    if(len(arguments_get) > 0):
+
+    if len(arguments_get) > 0:
         api_link += "?"
         for argument in arguments_get:
-            api_link += argument[0]+"="+argument[1]
-        
-    
+            api_link += argument[0]+"="+argument[1]+"&"
+        api_link = api_link[0:-1]
+    print api_link
     req = urllib2.Request(api_link)
-    if(len(arguments_post) > 0):
+    if arguments_post is not None and len(arguments_post) > 0:
         for argument in arguments_post:
             req.add_header(argument[0], argument[1])
-    
     return urllib2.urlopen(req)
-            
 
-def getRepositoryURL(repository, name = True):
-    repo_link = ""
-    if(name):
-        repo_link = "https://api.github.com/repos/" 
+def getRepositoryURL(repository, name=True):
+    global repo_link
+    if name:
+        repo_link = "https://api.github.com/repos/"
     else:
         repo_link = "https://api.github.com/repositories/"
     return repo_link + repository
 
-    
+
 def repositoryAdd(full_name):
     repository = json.load(requestAPI(getRepositoryURL(full_name)))
     print "["+json.dumps(repository['id'])+",",
@@ -80,90 +77,117 @@ def repositoryAdd(full_name):
     print json.dumps(repository['watchers_count'])+",",
     print json.dumps(repository['stargazers_count'])+"]"
     sys.exit()
-   
-    
+
 def updateCommits(full_name, branch_name, head, tail):
     global repo_link
-    repo_link = getRepositoryURL(full_name);
-    if(branch_name is None):
+    repo_link = getRepositoryURL(full_name)
+    if branch_name is None:
         repo = json.load(requestAPI(repo_link))
         branch_name = json.dumps(repo['default_branch'])[1:-1]
-    if(head is None and tail is not None): #tail only = error
-        sys.exit("400 Error") 
-    elif(head is None and tail is None): #no head and no tail (new) = from latest head to reachable tails
+    if head is None and tail is not None: # error
+        sys.exit("400 Error")
+    elif head is None and tail is None: #(new) = from latest head to reachable tail
         branches_link = repo_link + "/branches/" + branch_name
         branch = json.load(requestAPI(branches_link))
         _head = json.dumps(branch['commit']['sha'])[1:-1]
-        head = _head
-    elif(head is not None and tail is None): #head only (sync) = from latestHead to head  
-        setClaimedChunk(head, "")
-        branches_link = repo_link + "/branches/" + branch_name 
+        nhead = _head
+    elif head is not None and tail is None: #head only (sync) = from latestHead to head
+        ntail = setClaimedChunk(head, "")
+        branches_link = repo_link + "/branches/" + branch_name
         branch = json.load(requestAPI(branches_link))
         _head = json.dumps(branch['commit']['sha'])[1:-1]
-        head = _head
-    elif(tail is not None and head is not None): #head and tail (continue) = continue from tail
+        nhead = _head
+    elif tail is not None and head is not None: #head and tail (continue) = continue from tail
+        ntail = setClaimedChunk(head, tail)
         _head = tail
+        nhead = head
 
-    commit_link = repo_link + "/commits/" + _head 
-    #print commit_link
-    req = urllib2.Request(commit_link)
-    ntail = loadPoints(json.load(requestAPI(commit_link)))
-
-    print json.dumps(head) + "," + json.dumps(ntail['sha']) + ", ", 
+    ntail2 = loadPoints(json.load(requestAPI(repo_link + "/commits/" + _head)))
+    if head is None and tail is None:
+        ntail = ntail2['sha']
+    print json.dumps(nhead) + "," + json.dumps(ntail) + ", ",
     print str(len(points)) + ", ",
-    print json.dumps(points.items()), 
+    print json.dumps(points.items()),
 
 def setClaimedChunk(head, tail):
     global repo_link
     global count
     global claimed
-    
-    while (tail != head):
+
+    while tail != head:
         commit_link = repo_link + "/commits"
-        commits = json.load(requestAPI(commit_link, [['per_page','100'],["sha",head]]));
+        commits = json.load(requestAPI(commit_link, [['per_page', '100'], ["sha", head]]))
         for commit in commits:
-            if(claimed[commit['sha']] != True):
+            if claimed[commit['sha']] != True:
                 claimed[commit['sha']] = True
-                #print "claimed "+str(count)+": "+commit['sha']
+                print "claimed "+str(count)+": "+commit['sha']
                 count += 1
                 head = commit['sha']
-                if(len(commit['parents']) == 2):
+                if len(commit['parents']) == 2:
                     setClaimedChunk("", json.dumps(commit['parents'])[1][1:-1])
-                if (tail == head): 
+                if tail == head:
                     break
-        if(len(commits) < 100):
+        if len(commits) < 100:
             break
     return head
 
-def loadPoints(head):
+def loadPoints(mhead, tails=None):
+    head = mhead
     global count
     global claimed
-    while (claimed[head['sha']] == False and count < 1000):
+    while claimed[head['sha']] is not True and count < 1000:
+        print head['sha'] + " ",
+        print claimed[head['sha']]
         claimed[head['sha']] = True
         count += 1
-        if (head['author'] is not None):
+        if head['author'] is not None:
             author = json.dumps(head['author']['login'])[1:-1]
-            if (len(points) > 5 and points[author] == 0): break;
-            if (len(head['parents']) < 2):
+            if len(points) > 5 and points[author] == 0:
+                break
+            if len(head['parents']) < 2:
                 points[author] += int(json.dumps(head['stats']['total']))
-        for parent in head['parents']:    
-            commit_link = json.dumps(parent['url'])[1:-1]
-            _commit = json.load((requestAPI(commit_link)))
-            head = loadPoints(_commit)
+        if tails is not None:
+            for parent in head['parents']:
+                for mytail in tails:
+                    if parent['sha'] == mytail:
+                        return tail
+        if len(head['parents']) == 1:
+            if tails is not None and len(tails) > 0:
+                for mytail in tails:
+                    b = True
+                    if parent['sha'] == mytail:
+                        b = False
+                    if b:
+                        commit_link = head['parents'][0]['url']
+                        head = json.load(requestAPI(commit_link))
+        elif len(head['parents']) >= 1:
+            ntail = []
+            for parent in head['parents']:
+                ntail += [parent['sha']]
+            for parent in head['parents']:
+                if tails is not None and len(tails) > 0:
+                    for mytail in tails:
+                        b = True
+                        if parent['sha'] == mytail:
+                            b = False
+                        if b:
+                            head = loadPoints(json.load(requestAPI(parent['url'])), ntail)
+                else:
+                    head = loadPoints(json.load(requestAPI(parent['url'])), ntail)
     return head
 
 script = os.environ['ARG0']
 args = [x.strip() for x in os.environ['ARG1'].split(',')]
 
 if script == 'repo-update':
-    full_name=args[0]
-    branch_name=None
-    head=None
-    tail=None
+    full_name = args[0]
+    branch_name = None
+    head = None
+    tail = None
     try:
-        branch_name=args[1]
-        head=args[2]
-        tail=args[3]
+        branch_name = args[1]
+        head = args[2]
+        tail = args[3]
     except IndexError:
         print '',
     updateCommits(full_name, branch_name, head, tail)
