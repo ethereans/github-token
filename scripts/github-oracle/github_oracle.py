@@ -54,7 +54,7 @@ def requestAPI(api_link, arguments_get=None, arguments_post=None):
         for argument in arguments_get:
             api_link += argument[0]+"="+argument[1]+"&"
         api_link = api_link[0:-1]
-    print api_link
+    #print api_link
     req = urllib2.Request(api_link)
     if arguments_post is not None and len(arguments_post) > 0:
         for argument in arguments_post:
@@ -102,9 +102,9 @@ def updateCommits(full_name, branch_name, head, tail):
         _head = tail
         nhead = head
 
-    ntail2 = loadPoints(json.load(requestAPI(repo_link + "/commits/" + _head)))
+    ntail2 = loadPoints(_head)
     if head is None and tail is None:
-        ntail = ntail2['sha']
+        ntail = ntail2
     print json.dumps(nhead) + "," + json.dumps(ntail) + ", ",
     print str(len(points)) + ", ",
     print json.dumps(points.items()),
@@ -131,49 +131,28 @@ def setClaimedChunk(head, tail):
             break
     return head
 
-def loadPoints(mhead, tails=None):
-    head = mhead
+def loadPoints(head, upoints=True):
+    global repo_link
     global count
     global claimed
-    while claimed[head['sha']] is not True and count < 1000:
-        print head['sha'] + " ",
-        print claimed[head['sha']]
-        claimed[head['sha']] = True
-        count += 1
-        if head['author'] is not None:
-            author = json.dumps(head['author']['login'])[1:-1]
-            if len(points) > 5 and points[author] == 0:
-                break
-            if len(head['parents']) < 2:
-                points[author] += int(json.dumps(head['stats']['total']))
-        if tails is not None:
-            for parent in head['parents']:
-                for mytail in tails:
-                    if parent['sha'] == mytail:
-                        return tail
-        if len(head['parents']) == 1:
-            if tails is not None and len(tails) > 0:
-                for mytail in tails:
-                    b = True
-                    if parent['sha'] == mytail:
-                        b = False
-                    if b:
-                        commit_link = head['parents'][0]['url']
-                        head = json.load(requestAPI(commit_link))
-        elif len(head['parents']) >= 1:
-            ntail = []
-            for parent in head['parents']:
-                ntail += [parent['sha']]
-            for parent in head['parents']:
-                if tails is not None and len(tails) > 0:
-                    for mytail in tails:
-                        b = True
-                        if parent['sha'] == mytail:
-                            b = False
-                        if b:
-                            head = loadPoints(json.load(requestAPI(parent['url'])), ntail)
-                else:
-                    head = loadPoints(json.load(requestAPI(parent['url'])), ntail)
+    global points
+    while tail != head:
+        commit_link = repo_link + "/commits"
+        commits = json.load(requestAPI(commit_link, [['per_page', '100'], ["sha", head]]))
+        for commit in commits:
+            if claimed[commit['sha']] != True:
+                claimed[commit['sha']] = True
+                print "claimed "+str(count)+": "+commit['sha']
+                count += 1
+                head = commit['sha']
+                if len(commit['parents']) == 1 and commit['author'] is not None:
+                    if len(points) > 5 and points[author] == 0:
+                        break
+                    commit = json.load(requestAPI(commit['url']))
+                    author = json.dumps(commit['author']['login'])[1:-1]
+                    points[author] += int(commit['stats']['total'])
+        if len(commits) < 100:
+            break
     return head
 
 script = os.environ['ARG0']
