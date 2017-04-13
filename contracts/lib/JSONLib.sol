@@ -5,7 +5,8 @@ library JSONLib {
     function getNextString(bytes _str, uint8 _pos) internal constant returns (string,uint8) {
         uint8 start = 0;
         uint8 end = 0;
-        for (;_str.length > _pos; _pos++) {
+        uint strl =_str.length;
+        for (;strl > _pos; _pos++) {
             if (_str[_pos] == '"'){ //Found quotation mark
                 if(_str[_pos-1] != '\\'){ //is not escaped
 	                end = start == 0 ? 0: _pos;
@@ -26,12 +27,14 @@ library JSONLib {
 
     function getNextUInt(bytes _str, uint8 _pos) internal constant returns (uint,uint8) {
         uint val = 0;
-        for (; _str.length > _pos; _pos++) {
-            if (_str[_pos] == ','){ //Find ends
+        uint strl =_str.length;
+        for (; strl > _pos; _pos++) {
+            byte bp = _str[_pos];
+            if (bp == ','){ //Find ends
                 _pos++; break;
-            }else if ((_str[_pos] >= 48)&&(_str[_pos] <= 57)){ //only ASCII numbers
+            }else if ((bp >= 48)&&(bp <= 57)){ //only ASCII numbers
                 val *= 10;
-                val += uint(_str[_pos]) - 48;
+                val += uint(bp) - 48;
             }
         }
         return (val,_pos);
@@ -39,8 +42,10 @@ library JSONLib {
 
     function getNextAddr(bytes _str, uint8 _pos) internal constant returns (address, uint8){
         uint160 iaddr = 0;
-        for(;_str.length > _pos; _pos++){
-             if (_str[_pos] == '0'){ 
+        uint strl =_str.length;
+        for(;strl > _pos; _pos++){
+            byte bp = _str[_pos];
+             if (bp == '0'){ 
                 if (_str[_pos+1] == 'x'){
                     for (_pos=_pos+2; _pos<2+2*20; _pos+=2){
                         iaddr *= 256;
@@ -49,7 +54,7 @@ library JSONLib {
                     _pos++; 
                     break;
                 }
-            }else if (_str[_pos] == ','){ 
+            }else if (bp == ','){ 
                 _pos++; 
                 break; 
             } 

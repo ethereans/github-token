@@ -49,15 +49,18 @@ library StringLib {
         bytes memory a = bytes(self);
         bytes memory b = bytes(_b);
         uint minLength = a.length;
-        if (b.length < minLength) minLength = b.length;
-        for (uint i = 0; i < minLength; i ++)
-            if (a[i] < b[i])
+        uint bLength = b.length;
+        if (bLength < minLength) minLength = bLength;
+        for (uint i = 0; i < minLength; i++)
+            byte ai = a[i];
+            byte bi = b[i];
+            if (ai < bi)
                 return -1;
-            else if (a[i] > b[i])
+            else if (ai > bi)
                 return 1;
-        if (a.length < b.length)
+        if (minLength < bLength)
             return -1;
-        else if (a.length > b.length)
+        else if (minLength > bLength)
             return 1;
         else
             return 0;
@@ -66,23 +69,27 @@ library StringLib {
     function indexOf(string _haystack, string _needle) constant returns (int) {
         bytes memory h = bytes(_haystack);
         bytes memory n = bytes(_needle);
-        if(h.length < 1 || n.length < 1 || (n.length > h.length))
+        uint hlength = h.length;
+        uint nlength = n.length;
+        byte n0 = n[0];
+        if(hlength < 1 || nlength < 1 || (nlength > hlength))
             return -1;
-        else if(h.length > (2**128 -1))
+        else if(hlength > (2**128 -1))
             return -1;
         else
         {
             uint subindex = 0;
-            for (uint i = 0; i < h.length; i ++)
+            for (uint i = 0; i < hlength; i ++)
             {
-                if (h[i] == n[0])
+                if (h[i] == n0)
                 {
                     subindex = 1;
-                    while(subindex < n.length && (i + subindex) < h.length && h[i + subindex] == n[subindex])
+                    byte nsubindex = n[subindex];
+                    while(subindex < nlength && (i + subindex) < hlength && h[i + subindex] == nsubindex)
                     {
                         subindex++;
                     }
-                    if(subindex == n.length)
+                    if(subindex == nlength)
                         return int(i);
                 }
             }
@@ -100,15 +107,17 @@ library StringLib {
         bytes memory bresult = bytes(self);
         uint mint = 0;
         bool decimals = false;
-        for (uint i=0; i<bresult.length; i++){
-            if ((bresult[i] >= 48)&&(bresult[i] <= 57)){
+        uint bresultlength = bresult.length;
+        byte bresulti = bresult[i];
+        for (uint i=0; i< bresultlength; i++){
+            if ((bresulti >= 48)&&(bresulti <= 57)){
                 if (decimals){
                    if (_b == 0) break;
                     else _b--;
                 }
                 mint *= 10;
-                mint += uint(bresult[i]) - 48;
-            } else if (bresult[i] == 46) decimals = true;
+                mint += uint(bresulti) - 48;
+            } else if (bresulti == 46) decimals = true;
         }
         if (_b > 0) mint *= 10**_b;
         return mint;
@@ -121,14 +130,19 @@ library StringLib {
         bytes memory _bc = bytes(_c);
         bytes memory _bd = bytes(_d);
         bytes memory _be = bytes(_e);
-        string memory abcde = new string(_ba.length + _bb.length + _bc.length + _bd.length + _be.length);
+        uint _balength = _ba.length;
+        uint _bblength = _bb.length;
+        uint _bclength = _bc.length;
+        uint _bdlength = _bd.length;
+        uint _belength = _be.length;
+        string memory abcde = new string(_balength + _bblength + _bclength + _bdlength + _belength);
         bytes memory babcde = bytes(abcde);
         uint k = 0;
-        for (uint i = 0; i < _ba.length; i++) babcde[k++] = _ba[i];
-        for (i = 0; i < _bb.length; i++) babcde[k++] = _bb[i];
-        for (i = 0; i < _bc.length; i++) babcde[k++] = _bc[i];
-        for (i = 0; i < _bd.length; i++) babcde[k++] = _bd[i];
-        for (i = 0; i < _be.length; i++) babcde[k++] = _be[i];
+        for (uint i = 0; i < _balength; i++) babcde[k++] = _ba[i];
+        for (i = 0; i < _bblength; i++) babcde[k++] = _bb[i];
+        for (i = 0; i < _bclength; i++) babcde[k++] = _bc[i];
+        for (i = 0; i < _bdlength; i++) babcde[k++] = _bd[i];
+        for (i = 0; i < _belength; i++) babcde[k++] = _be[i];
         return string(babcde);
     }
 
