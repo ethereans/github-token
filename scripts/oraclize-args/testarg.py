@@ -25,13 +25,7 @@ parser.add_argument('-c','--client')
 parser.add_argument('-s','--secret')
 
 
-argn = []
-try:
-    for x in range(0, int(os.environ['ARGN'])):
-        argn[x] = os.environ['ARG'+`x`]
-    args = parser.parse_args(argn);
-except KeyError:
-    args = parser.parse_args()
+args = parser.parse_args()
                             
 if(args.client is not None and args.secret is not None):
     client_id = args.client
@@ -134,7 +128,7 @@ def updateIssue(issueid):
                         if(commit['url']):
                             link_commit = json.dumps(commit['url'])[1:-1] + auth
                             _commit = json.load(urllib2.urlopen(link_commit))
-                            author = int(json.dumps(_commit['author']['id'])[1:-1])
+                            author = _commit['author']['login']
                             points[author] += int(json.dumps(_commit['stats']['total']))
     print points.items() 
 

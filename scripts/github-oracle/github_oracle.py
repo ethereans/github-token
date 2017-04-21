@@ -15,6 +15,7 @@ def oAuth(client, secret, code):
     # { "Accept": "application/json", "client_id" : client, "client_secret" : secret, "code": code }
     # RESPONSE {"access_token":"e72e16c7e42f292c6912e7710c838347ae178b4a", "scope":"repo,gist", "token_type":"bearer"}
     sys.exit("501 Not implemented")
+    return ""
 
 #global
 points = defaultdict(int)
@@ -30,24 +31,28 @@ if argn > 2:
         client = auth[0]
         secret = auth[1]
         code = auth[2]
-        oAuth(client, secret, code)
+        token = oAuth(client, secret, code)
         auth = 2
     elif len(auth) == 2: #is secret
         client = auth[0]
         secret = auth[1]
         auth = 1
+    elif len(auth) == 1 and len(auth[0]) > 0:
+        token = auth[0]
+        auth = 2
     else:
         auth = 0
 
 args = os.environ['ARG1']
+
 
 def requestAPI(api_link, arguments_get=None, arguments_post=None):
     if arguments_get is None:
         arguments_get = []
     if auth == 1:
         arguments_get += [["client_id", client], ["client_secret", secret]]
-    #if(auth == 2):
-    #    arguments_post += [["Access-Token",token]]
+    if(auth == 2):
+        arguments_post += [["Access-Token",token]]
 
     if len(arguments_get) > 0:
         api_link += "?"
@@ -80,80 +85,73 @@ def repositoryAdd(full_name):
 
 def updateCommits(full_name, branch_name, head, tail):
     global repo_link
+    head_end = head
+    claim_head = True
     repo_link = getRepositoryURL(full_name)
     if branch_name is None:
         repo = json.load(requestAPI(repo_link))
-        branch_name = json.dumps(repo['default_branch'])[1:-1]
+        branch_name = repo['default_branch']
     if head is None and tail is not None: # error
         sys.exit("400 Error")
     elif head is None and tail is None: #(new) = from latest head to reachable tail
         branches_link = repo_link + "/branches/" + branch_name
         branch = json.load(requestAPI(branches_link))
-        _head = json.dumps(branch['commit']['sha'])[1:-1]
-        nhead = _head
+        head_start = branch['commit']['sha']
+        head_end=""
+        head_out = head_start
     elif head is not None and tail is None: #head only (sync) = from latestHead to head
-        ntail = setClaimedChunk(head, "")
         branches_link = repo_link + "/branches/" + branch_name
         branch = json.load(requestAPI(branches_link))
-        _head = json.dumps(branch['commit']['sha'])[1:-1]
-        nhead = _head
+        head_start = branch['commit']['sha']
+        head_out = head_start
     elif tail is not None and head is not None: #head and tail (continue) = continue from tail
-        ntail = setClaimedChunk(head, tail)
-        _head = tail
-        nhead = head
+        head_start = tail
+        head_end=""
+        claim_head=False
+        head_out = head
 
-    ntail2 = loadPoints(_head)
-    if head is None and tail is None:
-        ntail = ntail2
-    print json.dumps(nhead) + "," + json.dumps(ntail) + ", ",
+    tail_out = loadPoints(head_start,head_end,claim_head)
+    print json.dumps(head_out) + "," + json.dumps(tail_out) + ", ",
     print str(len(points)) + ", ",
     print json.dumps(points.items()),
 
-def setClaimedChunk(head, tail):
-    global repo_link
-    global count
-    global claimed
-
-    while tail != head:
-        commit_link = repo_link + "/commits"
-        commits = json.load(requestAPI(commit_link, [['per_page', '100'], ["sha", head]]))
-        for commit in commits:
-            if claimed[commit['sha']] != True:
-                claimed[commit['sha']] = True
-                print "claimed "+str(count)+": "+commit['sha']
-                count += 1
-                head = commit['sha']
-                if len(commit['parents']) == 2:
-                    setClaimedChunk("", json.dumps(commit['parents'])[1][1:-1])
-                if tail == head:
-                    break
-        if len(commits) < 100:
-            break
-    return head
-
-def loadPoints(head, upoints=True):
+def loadPoints(head, old_head="", claim_head=True):
     global repo_link
     global count
     global claimed
     global points
-    while tail != head:
+    while head != old_head:
         commit_link = repo_link + "/commits"
         commits = json.load(requestAPI(commit_link, [['per_page', '100'], ["sha", head]]))
         for commit in commits:
-            if claimed[commit['sha']] != True:
-                claimed[commit['sha']] = True
-                print "claimed "+str(count)+": "+commit['sha']
+            if commit['sha'] != old_head:
+                print "claim "+str(count)+": "+commit['sha'] + " ",
                 count += 1
-                head = commit['sha']
-                if len(commit['parents']) == 1 and commit['author'] is not None:
+                if len(commit['parents']) < 2 and commit['author'] is not None and (claim_head or commit['sha'] != head):
                     if len(points) > 5 and points[author] == 0:
                         break
                     commit = json.load(requestAPI(commit['url']))
                     author = json.dumps(commit['author']['login'])[1:-1]
-                    points[author] += int(commit['stats']['total'])
+                    points[author] += int(commit['stats']['additions'])
+                    print author + " +" + str(commit['stats']['additions']) + " -"+ str(commit['stats']['deletions']) + " |= " + str(commit['stats']['total'])
+                else:
+                    print "<invalid>"
+            else:
+                print "ended "+str(count)+": "+commit['sha'] 
+                break
+            head = commit['sha']
         if len(commits) < 100:
             break
     return head
+
+def userRegister(github_user,gistid):
+    value = json.load(requestAPI("https://api.github.com/gists/" + gistid))
+    login = value['owner']['login']
+    if login == github_user:
+        print "["+json.dumps(urllib2.urlopen("https://gist.githubusercontent.com/" + github_user + "/" + gistid + "/raw/").read(42))+",",
+        print json.dumps(value['owner']['id'])+", "+json.dumps(login)+"]"
+    else:
+        sys.exit("403 Forbidden")
 
 script = os.environ['ARG0']
 args = [x.strip() for x in os.environ['ARG1'].split(',')]
@@ -172,5 +170,7 @@ if script == 'repo-update':
     updateCommits(full_name, branch_name, head, tail)
 elif script == 'repo-add':
     repositoryAdd(args[0])
+elif script == "user-add":
+    userRegister(args[0],args[1])
 else:
     sys.exit("501 Not implemented")
