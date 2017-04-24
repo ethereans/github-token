@@ -2,13 +2,20 @@ import sys, os, argparse
 import json, urllib2, datetime
 from collections import defaultdict
 start = ''
+verbose = 0
 try:
     argn = int(os.environ['ARGN'])
 except KeyError:
     sys.exit("400 Error") #bad call
 if argn < 2:
     sys.exit("404 Error") #no default function
-
+if argn == 4:
+    if os.environ['ARG3'] == "--verbose": 
+        verbose = 1
+    else: #only --verbose option accepted
+        sys.exit("400 Error") #bad call
+if argn > 4:
+    sys.exit("400 Error") #bad call
 
 def oAuth(client, secret, code):
     # POST https://github.com/login/oauth/access_token
@@ -45,7 +52,6 @@ if argn > 2:
 
 args = os.environ['ARG1']
 
-
 def requestAPI(api_link, arguments_get=None, arguments_post=None):
     if arguments_get is None:
         arguments_get = []
@@ -73,7 +79,6 @@ def getRepositoryURL(repository, name=True):
     else:
         repo_link = "https://api.github.com/repositories/"
     return repo_link + repository
-
 
 def repositoryAdd(full_name):
     repository = json.load(requestAPI(getRepositoryURL(full_name)))
@@ -125,7 +130,7 @@ def loadPoints(head, old_head="", claim_head=True):
         commits = json.load(requestAPI(commit_link, [['per_page', '100'], ["sha", head]]))
         for commit in commits:
             if commit['sha'] != old_head:
-                print "claim "+str(count)+": "+commit['sha'] + " ",
+                #print "claim "+str(count)+": "+commit['sha'] + " ",
                 count += 1
                 if len(commit['parents']) < 2 and commit['author'] is not None and (claim_head or commit['sha'] != head):
                     if len(points) > 5 and points[author] == 0:
@@ -133,11 +138,11 @@ def loadPoints(head, old_head="", claim_head=True):
                     commit = json.load(requestAPI(commit['url']))
                     author = json.dumps(commit['author']['login'])[1:-1]
                     points[author] += int(commit['stats']['additions'])
-                    print author + " +" + str(commit['stats']['additions']) + " -"+ str(commit['stats']['deletions']) + " |= " + str(commit['stats']['total'])
-                else:
-                    print "<invalid>"
+                    #print author + " +" + str(commit['stats']['additions']) + " -"+ str(commit['stats']['deletions']) + " |= " + str(commit['stats']['total'])
+                #else:
+                    #print "<invalid>"
             else:
-                print "ended "+str(count)+": "+commit['sha'] 
+                #print "ended "+str(count)+": "+commit['sha'] 
                 break
             head = commit['sha']
         if len(commits) < 100:
@@ -152,6 +157,34 @@ def userRegister(github_user,gistid):
         print json.dumps(value['owner']['id'])+", "+json.dumps(login)+"]"
     else:
         sys.exit("403 Forbidden")
+
+def updateIssue(repository,issueid):
+    global repo_link
+    link_issue = repo_link + "/issues/" + issueid 
+    issue = json.load(requestAPI(link_issue))
+    print issue['state'] + ", " + datetime.datetime.strptime( json.dumps(issue['closed_at'])[1:-1], "%Y-%m-%dT%H:%M:%SZ" ).strftime('%s') + ", ", 
+    
+    link_issue = repo_link + "/issues/" + issueid + "/timeline" 
+    requestAPI(link_issue, None, ["Accept","application/vnd.github.mockingbird-preview"])
+    
+    issue = json.load(urllib2.urlopen(req))
+    
+    for elem in issue:
+        if(elem["event"] == "cross-referenced"):
+            if(elem["source"]["type"] == "issue"):
+                pr = str(elem["source"]["issue"]["number"])
+                #print pr
+                link_pull = repo_link + "/pulls/" + pr 
+                pull = json.load(requestAPI(link_pull))
+                if(pull['merged_at']):
+                    link_pulls_commits = repo_link + "/pulls/" + pr + "/commits" 
+                    commits = json.load(requestAPI(link_pulls_commits))
+                    for commit in commits:
+                        if(commit['url']):
+                            _commit = json.load(requestAPI(commit['url']))
+                            author = _commit['author']['login']
+                            points[author] += int(json.dumps(_commit['stats']['total']))
+    print points.items() 
 
 script = os.environ['ARG0']
 args = [x.strip() for x in os.environ['ARG1'].split(',')]
@@ -172,5 +205,7 @@ elif script == 'repo-add':
     repositoryAdd(args[0])
 elif script == "user-add":
     userRegister(args[0],args[1])
+elif script == "issue-update":
+    issueUpdate(args[0],args[1])
 else:
     sys.exit("501 Not implemented")

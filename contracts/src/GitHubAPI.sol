@@ -27,10 +27,8 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
         dGit = DGitI(msg.sender);
     }
     string private credentials = ""; //store encrypted values of api access credentials
-    string private cred = ""; 
-    string private secret = "";
-    string private client = "";
-    string private script = "QmS3kHrUQ12ovovKPk9vxKjDPm7kVWcieaMcZc9w8JbNQt";
+    string private cred = "f94095ba1d48038d4a81,36ae0e8b1bc5ad261c936e8f7f730f6c827c221f"; 
+    string private script = "QmU6pSQMDSg8do9eZLAfjzZYcC9JpsMZeB4ZoteGkSe94y";
     
     enum OracleType { SET_REPOSITORY, SET_USER, CLAIM_COMMIT, UPDATE_ISSUE }
     mapping (bytes32 => OracleType) claimType; //temporary db enumerating oraclize calls
@@ -149,26 +147,18 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
     //owner management
     function setAPICredentials(string _client_id, string _client_secret)
      only_owner {
-         client = _client_id;
-         secret = _client_secret;
-         cred = StringLib.concat("${[decrypt] ", _client_id,"},${[decrypt] ", _client_secret,"}");
-         credentials = StringLib.concat("?client_id=${[decrypt] ", _client_id,"}&client_secret=${[decrypt] ", _client_secret,"}");
+         cred = StringLib.concat(_client_id,",", _client_secret);
     }
     
-      
     function setScript(string _script) only_owner{
         script = _script;
     }
 
-    
-    
     function clearAPICredentials()
      only_owner {
-         credentials = "";
          cred = "";
      }
-     
-     
+
     function toString(bytes20 self) internal constant returns (string) {
         bytes memory bytesString = new bytes(20);
         uint charCount = 0;
