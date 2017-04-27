@@ -26,7 +26,6 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
     function GitHubAPIOraclize(){
         dGit = DGitI(msg.sender);
     }
-    string private credentials = ""; //store encrypted values of api access credentials
     string private cred = "f94095ba1d48038d4a81,36ae0e8b1bc5ad261c936e8f7f730f6c827c221f"; 
     string private script = "QmU6pSQMDSg8do9eZLAfjzZYcC9JpsMZeB4ZoteGkSe94y";
     
