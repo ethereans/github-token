@@ -13,8 +13,12 @@ export ARG2
 
 python github-oracle/github_oracle.py 
 
-ARG0="repo-update"
-ARG1="ethereans/TheEtherian,master,b2ca0a249c6614d2be14d7d77694f52cd83acfd9,3dcfc9e50a10828017b780cd6793c29ad6f77bdb"
+ARG0="update-new"
+ARG1="ethereans/TheEtherian,master,f6a4474822a1193f81b45a571e521218a48ca8e3"
+
+#python github-oracle/github_oracle.py
+
+ARG0="update-old"
+ARG1="ethereans/TheEtherian,master,b2ca0a249c6614d2be14d7d77694f52cd83acfd9,7d69d0e065d983cacb39f88ea1500c9224fe622f,e2c8c7a091ce3893635ce47169c972c6d5434ffa"
 
 python github-oracle/github_oracle.py
-
