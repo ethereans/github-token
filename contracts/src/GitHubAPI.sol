@@ -20,21 +20,18 @@ contract DGitI {
 }
 
 contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
-  using StringLib for string;
-  
-    DGitI dGit;
-    function GitHubAPIOraclize(){
-        dGit = DGitI(msg.sender);
-        oraclize_setProof(proofType_TLSNotary | proofStorage_IPFS);
-    }
+    using StringLib for string;
+    DGitI dGit
+    
     string private cred = "f94095ba1d48038d4a81,36ae0e8b1bc5ad261c936e8f7f730f6c827c221f"; 
+    string private credentials = "?client_id=f94095ba1d48038d4a81&client_secret=36ae0e8b1bc5ad261c936e8f7f730f6c827c221f";
     string private script = "QmU6pSQMDSg8do9eZLAfjzZYcC9JpsMZeB4ZoteGkSe94y";
     
     enum OracleType { SET_REPOSITORY, SET_USER, CLAIM_COMMIT, UPDATE_ISSUE }
     mapping (bytes32 => OracleType) claimType; //temporary db enumerating oraclize calls
     mapping (bytes32 => CommitClaim) commitClaim; //temporary db for oraclize commit token claim calls
     mapping (bytes32 => UserClaim) userClaim; //temporary db for oraclize user register queries
-
+    
     //stores temporary data for oraclize user register request
     struct UserClaim {
         address sender;
@@ -45,8 +42,13 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
         string repository;
         bytes20 commitid;
     }
-  //register or change a github user ethereum address. 100000000000000000
-  
+    
+    function GitHubAPIOraclize(){
+        dGit = DGitI(msg.sender);
+        oraclize_setProof(proofType_TLSNotary | proofStorage_IPFS);
+    }
+    
+    //register or change a github user ethereum address. 100000000000000000
     function register(address _sender, string _github_user, string _gistid)
          payable only_owner{
             bytes32 ocid = oraclize_query("nested", StringLib.concat("[identity] ${[URL] https://gist.githubusercontent.com/",_github_user,"/",_gistid,"/raw/}, ${[URL] json(https://api.github.com/gists/").concat(_gistid,credentials,").owner.[id,login]}"));
@@ -56,7 +58,7 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
     
     function updateCommits(string _repository, bytes20 _commitid)
      payable only_owner{
-        bytes32 ocid = oraclize_query("computation", [script, "repo-update",_repository.concat(",", toString(_commitid)),cred]);
+        bytes32 ocid = oraclize_query("computation", [script, "update-new",_repository.concat(",", toString(_commitid)),cred]);
         claimType[ocid] = OracleType.CLAIM_COMMIT;
         commitClaim[ocid] = CommitClaim( { repository: _repository, commitid:_commitid});
     }
@@ -73,7 +75,6 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
     
     event OracleEvent(bytes32 myid, string result, bytes proof);
     //oraclize response callback
-
     function __callback(bytes32 myid, string result, bytes proof) {
         OracleEvent(myid,result,proof);
         if (msg.sender != oraclize.cbAddress()){
@@ -148,6 +149,7 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
     function setAPICredentials(string _client_id, string _client_secret)
      only_owner {
          cred = StringLib.concat(_client_id,",", _client_secret);
+         credentials = StringLib.concat("?client_id=",_client_id,"&client_secret="+_client_secret);
     }
     
     function setScript(string _script) only_owner{
@@ -157,6 +159,7 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
     function clearAPICredentials()
      only_owner {
          cred = "";
+         credentials = "";
      }
 
     function toString(bytes20 self) internal constant returns (string) {

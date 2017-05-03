@@ -1,32 +1,9 @@
 import sys, os, argparse
 import json, urllib2, datetime
 from collections import defaultdict
-start = ''
 
 def logmsg(msg):
     sys.stderr.write("[GitHubOracle] "+msg+" \n")
-
-
-try:
-    argn = int(os.environ['ARGN'])
-except KeyError:
-    sys.exit("400 Error") #bad call
-if argn < 2:
-    sys.exit("404 Error") #no default function
-if argn > 3:
-    sys.exit("400 Error") #bad call
-
-logmsg("Started " + os.environ['ARG0'] + "(" +  os.environ['ARG1']+")")
-    
-
-
-#global
-
-claimed = defaultdict(bool)
-count = 0
-repo_link = ""
-
-args = os.environ['ARG1']
 
 class GitHubAPI:
 
@@ -258,10 +235,10 @@ class GitRepository:
                 if(elem["source"]["type"] == "issue"):
                     pr = str(elem["source"]["issue"]["number"])
                     #print pr
-                    link_pull = repo_link + "/pulls/" + pr 
+                    link_pull = self.repo_link + "/pulls/" + pr 
                     pull = json.load(requestAPI(link_pull))
                     if(pull['merged_at']):
-                        link_pulls_commits = repo_link + "/pulls/" + pr + "/commits" 
+                        link_pulls_commits = self.repo_link + "/pulls/" + pr + "/commits" 
                         commits = json.load(api.request(link_pulls_commits))
                         for commit in commits:
                             if(commit['url']):
@@ -284,6 +261,19 @@ def userRegister(github_user,gistid):
         logmsg("Wrong condition: "+github_user+" != "+login);
         sys.exit("403 Forbidden")
 
+#Script start
+try:
+    argn = int(os.environ['ARGN'])
+except KeyError:
+    sys.exit("400 Error") #bad call
+if argn < 2:
+    sys.exit("404 Error") #no default function
+if argn > 3:
+    sys.exit("400 Error") #bad call
+
+logmsg("Started " + os.environ['ARG0'] + "(" +  os.environ['ARG1']+")")
+    
+#global
 script = os.environ['ARG0']
 args = [x.strip() for x in os.environ['ARG1'].split(',')]
 api = GitHubAPI()
@@ -291,21 +281,17 @@ api = GitHubAPI()
 if api.checkLimit(5):
     if script == 'update-new':
         repository = GitRepository(api, args[0])
-        try:
+        if argn > 1:
             repository.setBranch(args[1])
+        if argn > 2:
             repository.setHead(args[2])
-        except IndexError:
-            a = None
-
         repository.updateCommits()
-
         print "["+json.dumps(repository.data['id'])+",",
         print json.dumps(repository.data['full_name']) + "," + json.dumps(repository.branch['name']) + ",",
         print json.dumps(repository.head) + "," + json.dumps(repository.tail) + ",",
         print str(len(repository.points)) + ",",
         print json.dumps(repository.points.items()),
         print "]"   
-
     elif script == 'update-old':
         repository = GitRepository(api, args[0])
         repository.setBranch(args[1])
@@ -320,7 +306,6 @@ if api.checkLimit(5):
         print str(len(repository.points)) + ",",
         print json.dumps(repository.points.items()),
         print "]"   
-        
     elif script == 'repository-add':
         repository = GitRepository(api, args[0])
         print "["+json.dumps(repository.data['id'])+",",
