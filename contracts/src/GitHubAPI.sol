@@ -25,6 +25,7 @@ contract GitHubAPIOraclize is GitHubAPI, Owned, usingOraclize{
     DGitI dGit;
     function GitHubAPIOraclize(){
         dGit = DGitI(msg.sender);
+        oraclize_setProof(proofType_TLSNotary | proofStorage_IPFS);
     }
     string private cred = "f94095ba1d48038d4a81,36ae0e8b1bc5ad261c936e8f7f730f6c827c221f"; 
     string private script = "QmU6pSQMDSg8do9eZLAfjzZYcC9JpsMZeB4ZoteGkSe94y";
