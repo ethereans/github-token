@@ -32,12 +32,21 @@ class GitHubAPI:
 
     auth = 0
 
-    def oAuth(self):
-        # POST https://github.com/login/oauth/access_token
-        # { "Accept": "application/json", "client_id" : client, "client_secret" : secret, "code": code }
-        # RESPONSE {"access_token":"e72e16c7e42f292c6912e7710c838347ae178b4a", "scope":"repo,gist", "token_type":"bearer"}
-        sys.exit("501 Not implemented")
-        return ""
+    def oAuth(self,code):
+        req = urllib2.Request("https://github.com/login/oauth/access_token")
+        req.add_header("Accept", "application/json")
+        req.add_header("client_id", self.client)
+        req.add_header("client_secret", self.secret)
+        req.add_header("code", code)
+        response = urllib2.urlopen(req)
+        rjs = json.load(response)
+        try:
+            logmsg("OAuth success:" + rjs['scope'] + "/" + rjs['token_type']
+            return rjs['access_token']
+        except KeyError:
+            logmsg("OAuth error " + rjs['error'] + ":" + rjs['error_description']
+            logmsg(rjs['error_uri'])
+            sys.exit("403 Forbidden")
 
     def __init__(self):
         
@@ -48,8 +57,7 @@ class GitHubAPI:
                 logmsg("Using OAuth")
                 self.client = autharg[0]
                 self.secret = autharg[1]
-                self.code = autharg[2]
-                self.token = self.oAuth()
+                self.token = self.oAuth(autharg[2])
                 self.auth = 2
             elif len(autharg) == 2: #is secret
                 logmsg("Using Secret Mode")
