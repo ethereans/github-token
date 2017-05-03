@@ -18,10 +18,10 @@ class GitHubAPI:
         response = urllib2.urlopen(req)
         rjs = json.load(response)
         try:
-            logmsg("OAuth success:" + rjs['scope'] + "/" + rjs['token_type']
+            logmsg("OAuth success:" + rjs['scope'] + "/" + rjs['token_type'])
             return rjs['access_token']
         except KeyError:
-            logmsg("OAuth error " + rjs['error'] + ":" + rjs['error_description']
+            logmsg("OAuth error " + rjs['error'] + ":" + rjs['error_description'])
             logmsg(rjs['error_uri'])
             sys.exit("403 Forbidden")
 
@@ -281,9 +281,9 @@ api = GitHubAPI()
 if api.checkLimit(5):
     if script == 'update-new':
         repository = GitRepository(api, args[0])
-        if argn > 1:
+        if len(args) > 1:
             repository.setBranch(args[1])
-        if argn > 2:
+        if len(args) > 2:
             repository.setHead(args[2])
         repository.updateCommits()
         print "["+json.dumps(repository.data['id'])+",",
