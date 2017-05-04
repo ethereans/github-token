@@ -202,13 +202,13 @@ class GitRepository:
         self.count += 1
         if len(commit['parents']) < 2 and commit['author'] is not None:
             commit = json.load(self.api.request(commit['url']))
-            author = commit['author']['login']
+            author = commit['author']['id']
             self.points[author] += int(commit['stats']['additions'])
             if(len(commit['parents']) == 0):
                 parent = "<seed>"
             else:
                 parent = "<"+commit['parents'][0]['sha']+">"
-            logmsg(commit['sha']+": "+ author + " +" + str(commit['stats']['additions']) + " -"+ str(commit['stats']['deletions']) + " |= " + str(commit['stats']['total']) + " " + parent)
+            logmsg(commit['sha']+": "+  commit['author']['login'] + " ("+str(author) + ") +" + str(commit['stats']['additions']) + " -"+ str(commit['stats']['deletions']) + " |= " + str(commit['stats']['total']) + " " + parent)
         else:
             if(len(commit['parents']) >= 2):
                 parents = ""
@@ -286,8 +286,7 @@ if api.checkLimit(5):
         if len(args) > 2:
             repository.setHead(args[2])
         repository.updateCommits()
-        print "["+json.dumps(repository.data['id'])+",",
-        print json.dumps(repository.data['full_name']) + "," + json.dumps(repository.branch['name']) + ",",
+        print "["+json.dumps(repository.data['id'])+"," + json.dumps(repository.branch['name']) + ",",
         print json.dumps(repository.head) + "," + json.dumps(repository.tail) + ",",
         print str(len(repository.points)) + ",",
         print json.dumps(repository.points.items()),
@@ -300,8 +299,7 @@ if api.checkLimit(5):
             repository.continueLoading(args[3],args[4])
         except IndexError:
             repository.continueLoading(args[3])
-        print "["+json.dumps(repository.data['id'])+",",
-        print json.dumps(repository.data['full_name']) + "," + json.dumps(repository.getBranch()['name']) + ",",
+        print "["+json.dumps(repository.data['id'])+"," + json.dumps(repository.getBranch()['name']) + ",",
         print json.dumps(repository.head) + "," + json.dumps(repository.tail) + ",",
         print str(len(repository.points)) + ",",
         print json.dumps(repository.points.items()),
@@ -317,9 +315,8 @@ if api.checkLimit(5):
     elif script == "issue-update":
         repository = GitRepository(api, args[0])
         issue = repository.issuePoints(args[1])
-        print "["+json.dumps(repository.data['id'])+",",
-        print json.dumps(repository.data['full_name']) + ",",
-        print issue['state'] + ", " + datetime.datetime.strptime( json.dumps(issue['closed_at'])[1:-1], "%Y-%m-%dT%H:%M:%SZ" ).strftime('%s') + ", ", 
+        print "["+json.dumps(repository.data['id'])+"," + json.dumps(issue['id']),
+        print json.dumps(issue['state']) + ", " + datetime.datetime.strptime(issue['closed_at'], "%Y-%m-%dT%H:%M:%SZ" ).strftime('%s') + ", ", 
         print str(len(repository.points)) + ",",
         print json.dumps(repository.points.items()),
         print "]"   
