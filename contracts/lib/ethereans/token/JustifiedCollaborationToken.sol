@@ -8,9 +8,9 @@ pragma solidity ^0.4.1;
  */
 
 import "../management/Owned.sol"; 
-import "./CollaborationToken.sol";
+import "./AbstractToken.sol";
 
-contract JustifiedCollaborationToken is CollaborationToken, Owned {
+contract JustifiedCollaborationToken is AbstractToken, Owned {
     event Claim(bytes32 _data);
     mapping (bytes32 => Receipt) public receipts;
     mapping (address => bool) public minters;
@@ -23,7 +23,6 @@ contract JustifiedCollaborationToken is CollaborationToken, Owned {
     }
     
     function claim(address _beneficiary, uint256 _value, bytes32 _data) 
-     not_locked
      only_owner {
         if(receipts[_data].claimed) throw;
         receipts[_data] = Receipt ({beneficiary: _beneficiary, value: _value, claimed: true});

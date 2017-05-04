@@ -15,10 +15,10 @@ pragma solidity ^0.4.8;
  * Released under GPLv3 License
  */
 
-import "lib/ethereans/token/CollaborationToken.sol";
+import "lib/ethereans/token/LockerToken.sol";
 import "lib/ethereans/management/Owned.sol";
 
-contract GitRepositoryToken is CollaborationToken, Owned {
+contract GitRepositoryToken is LockerToken {
 
     function GitRepositoryToken(string _repository) {
         setAttribute("name", _repository);
@@ -27,7 +27,7 @@ contract GitRepositoryToken is CollaborationToken, Owned {
     }
     
     function mint(address _who, uint256 _value)
-     only_owner {
+     only_owner when_locked(false) {
         _mint(_who,_value);
     }
 

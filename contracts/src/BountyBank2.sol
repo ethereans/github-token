@@ -9,7 +9,7 @@ import "lib/ethereans/management/Owned.sol" ;
 contract GitBountyBank is Owned {
      
     mapping (uint => Bounty) bounties;
-    uint lockPeriod = 1 month;
+    uint lockPeriod = 30 days;
     struct Bounty {
         bool open;
         uint closedAt; 
@@ -45,9 +45,9 @@ contract GitBountyBank is Owned {
      payable returns (uint reciept) {
         if (!bounties[num].open) throw;
         reciept = bounties[num].depositIndex;
-        bounties[num].deposits[reciept] = { owner: account, amount: msg.value };
+        bounties[num].deposits[reciept] = Account({ owner: account, amount: msg.value });
         bounties[num].depositIndex++;
-        bounties[num].balance += msg.value;
+        bounties[num].deposited += msg.value;
         return reciept;
     }
      
@@ -56,7 +56,7 @@ contract GitBountyBank is Owned {
         if(bounties[num].deposits[reciept].owner != account) throw;
         uint avaliable = bounties[num].deposits[reciept].amount;
         delete bounties[num].deposits[reciept];
-        bounties[num].balance -= avaliable;
+        bounties[num].deposited -= avaliable;
         if(!account.send(avaliable)) throw;
     }
    
@@ -64,7 +64,8 @@ contract GitBountyBank is Owned {
         if (bounties[num].open || now < bounties[num].closedAt+lockPeriod) throw;
         uint balance = bounties[num].deposited - bounties[num].claimed;
         uint remainingStats = bounties[num].stats - bounties[num].statsClaimed;
-        bounties[num].claims[commitid] = { owner: account, amount: stats };
+        bounties[num].claims[commitid] = Account({ owner: beneficiary, amount: stats });
+        //bounties[num].claimed+= 
         
     }
      

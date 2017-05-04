@@ -1,7 +1,7 @@
 {
   "contracts": "contracts",
   
-  "deploy": ["GitHubOracleStorage", "GitRepositoryFactory", "GitHubOracle"],
+  "deploy": ["DGit"],
 
   "plugins": {
     "oraclize": {

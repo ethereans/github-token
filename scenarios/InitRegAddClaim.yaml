@@ -1,0 +1,38 @@
+# 
+# Scenario1 
+# 
+# Created on: 27/03/2017 03:30:55 
+# 
+
+# Call method initialize()
+- from: '0xdedb49385ad5b94a16f236a6890cf9e0b1e30392'
+  to: '0x086ca7abad7f9773db72e2efd83dd22f5f408862'
+  value: '0x0'
+  call: initialize()
+  args: []
+
+# Call method register(string,string)
+- from: '0xdedb49385ad5b94a16f236a6890cf9e0b1e30392'
+  to: '0x086ca7abad7f9773db72e2efd83dd22f5f408862'
+  value: '0x0'
+  call: 'register(string,string)'
+  args:
+    - 3esmit
+    - 31a58f2ddf2258697cce1b969e7c298b
+
+# Call method addRepository(string)
+- from: '0xdedb49385ad5b94a16f236a6890cf9e0b1e30392'
+  to: '0x086ca7abad7f9773db72e2efd83dd22f5f408862'
+  value: '0x8ac7230489e80000'
+  call: addRepository(string)
+  args:
+    - status-im/github-oracle
+
+# Call method claimCommit(string,string)
+- from: '0xdedb49385ad5b94a16f236a6890cf9e0b1e30392'
+  to: '0x086ca7abad7f9773db72e2efd83dd22f5f408862'
+  value: '0x0'
+  call: 'claimCommit(string,string)'
+  args:
+    - status-im/github-oracle
+    - 3c461c5bfe3107923a13270f7037854f1ae8ca36
