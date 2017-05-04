@@ -1,15 +1,21 @@
-import sys, os, argparse
-import json, urllib2, datetime
+"""Process information from GitHubAPI"""
+import sys
+import os
+import json
+import urllib2
+import datetime
 from collections import defaultdict
 
 def logmsg(msg):
+    """Logs a message into proof."""
     sys.stderr.write("[GitHubOracle] "+msg+" \n")
 
 class GitHubAPI:
-
+    """Authentication and API Requests."""
     auth = 0
 
-    def oAuth(self,code):
+    def oauth(self, code):
+        """Exchanges code for token."""
         req = urllib2.Request("https://github.com/login/oauth/access_token")
         req.add_header("Accept", "application/json")
         req.add_header("client_id", self.client)
@@ -26,15 +32,14 @@ class GitHubAPI:
             sys.exit("403 Forbidden")
 
     def __init__(self):
-        
-        argn = int(os.environ['ARGN'])
-        if argn > 2:
+        self.argn = int(os.environ['ARGN'])
+        if self.argn > 2:
             autharg = [x.strip() for x in os.environ['ARG2'].split(',')]
             if len(autharg) == 3: #is token
                 logmsg("Using OAuth")
                 self.client = autharg[0]
                 self.secret = autharg[1]
-                self.token = self.oAuth(autharg[2])
+                self.token = self.oauth(autharg[2])
                 self.auth = 2
             elif len(autharg) == 2: #is secret
                 logmsg("Using Secret Mode")
@@ -43,7 +48,7 @@ class GitHubAPI:
                 self.auth = 1
             elif len(autharg) == 1 and len(autharg[0]) > 0:
                 logmsg("Using Token")
-                token = autharg[0]
+                self.token = autharg[0]
                 self.auth = 2
             else:
                 logmsg("Anonymous API")
@@ -51,33 +56,33 @@ class GitHubAPI:
         api_link = "https://api.github.com/rate_limit"
         if self.auth == 1:
             req = urllib2.Request(api_link+"?client_id="+self.client+"&client_secret="+self.secret)
-        elif(self.auth == 2):
+        elif self.auth == 2:
             req = urllib2.Request(api_link)
             req.add_header("Access-Token", self.token)
         else:
             req = urllib2.Request(api_link)
-        
         res = json.load(urllib2.urlopen(req))
         self.api = defaultdict(int)
         self.api['rate_limit'] = int(res['rate']['limit'])
         self.api['rate_remaining'] = int(res['rate']['remaining'])
         self.api['rate_reset'] = int(res['rate']['reset'])
-    
-    def checkLimit(self, more_than = 0):
-        if(self.api['rate_remaining'] > more_than):
+
+    def check_limit(self, more_than=0):
+        """Returns True if under limit, else log and return False."""
+        if self.api['rate_remaining'] > more_than:
             return True
         else:
             logmsg("X-RateLimit reached. Try again in "+self.api['rate_reset']+".")
             return False
-    
+
     def request(self, api_link, arguments_get=None, arguments_post=None):
+        """Request something to API using authentication."""
         if arguments_get is None:
             arguments_get = []
         if self.auth == 1:
             arguments_get += [["client_id", self.client], ["client_secret", self.secret]]
-        if(self.auth == 2):
-            arguments_post += [["Access-Token",self.token]]
-    
+        if self.auth == 2:
+            arguments_post += [["Access-Token", self.token]]
         if len(arguments_get) > 0:
             api_link += "?"
             for argument in arguments_get:
@@ -94,13 +99,14 @@ class GitHubAPI:
         return response
 
 class GitRepository:
+    """Uses API to load Repository Data"""
     branch = None
     head = ""
     tail = ""
-    repo_link=""
+    repo_link = ""
     points = defaultdict(int)
     count = 0
-    
+
     def __init__(self, api, repository, name=True):
         self.api = api
         if name:
@@ -110,47 +116,52 @@ class GitRepository:
         self.repo_link += repository
         self.data = json.load(api.request(self.repo_link))
         self.branch_name = self.data['default_branch']
-    
-    def setBranch(self, branch_name):
-        branch = None
+
+    def set_branch(self, branch_name):
+        """Sets the working branch."""
+        self.branch = None
         self.branch_name = branch_name
-    
-    def setHead(self, head):
+
+    def set_head(self, head):
+        """Set the latest head."""
         self.head = head
-        
-    def setTail(self, tail):
+
+    def set_tail(self, tail):
+        """Set the further tail"""
         self.tail = tail
-        
-    def getBranch(self):
+
+    def get_branch(self):
+        """Get branch data."""
         logmsg("Loaded branch " + self.branch_name)
-        if(self.branch is None):
+        if self.branch is None:
             branches_link = self.repo_link + "/branches/" + self.branch_name
             self.branch = json.load(api.request(branches_link))
         return self.branch
 
-    def __parseLinkHeader(self, headers):
+    def __parse_link_header(self, headers):
         links = {}
         if "Link" in headers:
-            linkHeaders = headers["Link"].split(", ")
-            for linkHeader in linkHeaders:
-                (url, rel) = linkHeader.split("; ")
+            link_headers = headers["Link"].split(", ")
+            for link_header in link_headers:
+                (url, rel) = link_header.split("; ")
                 url = url[1:-1]
                 rel = rel[5:-1]
                 links[rel] = url
         return links
-    
-    def updateCommits(self):
-        branch_head = self.getBranch()['commit']['sha']
+
+    def update_commits(self):
+        branch_head = self.get_branch()['commit']['sha']
         logmsg("Loading from "+branch_head+ (" up to "+self.head if len(self.head) > 0 else "") + ".")
         page = '1'
-        while self.api.checkLimit():
+        while self.api.check_limit():
             response = self.api.request(self.repo_link + "/commits", [['per_page', '100'], ['sha', branch_head], ['page', page]])
             commits = json.load(response)
             logmsg("page "+page+" contains " + str(len(commits)) +" commits.")
             for commit in commits:
                 if commit['sha'] != self.head:
-                    if self.api.checkLimit() and not (len(self.points) > 10 and self.points[author] == 0):
-                        self.tail = self.__claimCommit(commit)['sha']
+                    author = commit['author']['id']
+                    if self.api.check_limit() and not (len(self.points) > 10 and self.points[author] == 0):
+                        self.tail = self.__claim_commit(commit)['sha']
                     else:
                         self.head = branch_head
                         return self.tail
@@ -160,30 +171,31 @@ class GitRepository:
                     self.head = branch_head
                     return self.tail
             try:
-                links = self.__parseLinkHeader(response.headers)
+                links = self.__parse_link_header(response.headers)
                 page = links['next'].split('&page=')[1].split('&')[0]
             except KeyError:
                 logmsg("Reached end of pagination.")
                 break
         self.head = branch_head
         return self.tail
-        
-    def continueLoading(self, old_tail, limit=""):
+
+    def continue_loading(self, old_tail, limit=""):
         logmsg("Continuing from "+self.head+ (" up to "+limit if len(limit) > 0 else "") +".")
         page = '1'
         claim = False
-        while self.api.checkLimit():
+        while self.api.check_limit():
             response = self.api.request(self.repo_link + "/commits", [['per_page', '100'], ['sha', self.head], ['page', page]])
             commits = json.load(response)
             logmsg("page "+page+" contains " + str(len(commits)) +" commits.")
             for commit in commits:
                 if commit['sha'] != limit:
-                    if(commit['sha'] == old_tail):
+                    if commit['sha'] == old_tail:
                         logmsg(commit['sha']+": <found old tail>")
-                        claim = True;
-                    elif(claim):
-                        if self.api.checkLimit() and not (len(self.points) > 10 and self.points[author] == 0):
-                            self.tail = self.__claimCommit(commit)['sha']
+                        claim = True
+                    elif claim:
+                        author = commit['author']['id']
+                        if self.api.check_limit() and not (len(self.points) > 10 and self.points[author] == 0):
+                            self.tail = self.__claim_commit(commit)['sha']
                         else:
                             return self.tail
                 else:
@@ -191,75 +203,73 @@ class GitRepository:
                     self.tail = limit
                     return self.tail
             try:
-                links = self.__parseLinkHeader(response.headers)
+                links = self.__parse_link_header(response.headers)
                 page = links['next'].split('&page=')[1].split('&')[0]
             except KeyError:
                 logmsg("Reached end of pagination.")
                 break
-        return self.tail      
-        
-    def __claimCommit(self, commit):
+        return self.tail
+
+    def __claim_commit(self, commit):
         self.count += 1
         if len(commit['parents']) < 2 and commit['author'] is not None:
             commit = json.load(self.api.request(commit['url']))
             author = commit['author']['id']
             self.points[author] += int(commit['stats']['additions'])
-            if(len(commit['parents']) == 0):
+            if len(commit['parents']) == 0:
                 parent = "<seed>"
             else:
                 parent = "<"+commit['parents'][0]['sha']+">"
             logmsg(commit['sha']+": "+  commit['author']['login'] + " ("+str(author) + ") +" + str(commit['stats']['additions']) + " -"+ str(commit['stats']['deletions']) + " |= " + str(commit['stats']['total']) + " " + parent)
         else:
-            if(len(commit['parents']) >= 2):
+            if len(commit['parents']) >= 2:
                 parents = ""
                 for parent in commit['parents']:
                     parents += parent['sha']+", "
                 logmsg(commit['sha'] +": <merge: " + parents[:-2] + ">")
-            elif(commit['author'] is None):
+            elif commit['author'] is None:
                 logmsg(commit['sha'] +": <unknown author>")
             else:
                 logmsg(commit['sha'] +": <already claimed>")
         return commit
-        
-    def issuePoints(self, issueid):
-        link_issue = self.repo_link + "/issues/" + issueid 
+
+    def issue_points(self, issueid):
+        link_issue = self.repo_link + "/issues/" + issueid
         issue = json.load(api.request(link_issue))
-        
-        link_issue = self.repo_link + "/issues/" + issueid + "/timeline" 
-        api.request(link_issue, None, ["Accept","application/vnd.github.mockingbird-preview"])
-        
-        issue_timeline = json.load(urllib2.urlopen(req))
-        
+        link_issue = self.repo_link + "/issues/" + issueid + "/timeline"
+        issue_timeline = self.api.request(link_issue, None, ["Accept", "application/vnd.github.mockingbird-preview"])
         for elem in issue_timeline:
-            if(elem["event"] == "cross-referenced"):
-                if(elem["source"]["type"] == "issue"):
+            if elem["event"] == "cross-referenced":
+                if elem["source"]["type"] == "issue":
                     pr = str(elem["source"]["issue"]["number"])
                     #print pr
-                    link_pull = self.repo_link + "/pulls/" + pr 
-                    pull = json.load(requestAPI(link_pull))
-                    if(pull['merged_at']):
-                        link_pulls_commits = self.repo_link + "/pulls/" + pr + "/commits" 
+                    link_pull = self.repo_link + "/pulls/" + pr
+                    pull = json.load(self.api.request(link_pull))
+                    if pull['merged_at']:
+                        link_pulls_commits = self.repo_link + "/pulls/" + pr + "/commits"
                         commits = json.load(api.request(link_pulls_commits))
                         for commit in commits:
-                            if(commit['url']):
-                                _commit = json.load(requestAPI(commit['url']))
+                            if commit['url']:
+                                _commit = json.load(self.api.request(commit['url']))
                                 author = _commit['author']['login']
                                 self.points[author] += int(json.dumps(_commit['stats']['total']))
         return issue
-        
-def userRegister(github_user,gistid):
+
+def user_register(github_user,gistid):
     logmsg("Reading Gist "+gistid+" from "+github_user+".")
     value = json.load(api.request("https://api.github.com/gists/" + gistid))
     login = value['owner']['login']
     logmsg("Gist owner is "+login+".")
     if login == github_user:
         content = urllib2.urlopen("https://gist.githubusercontent.com/" + github_user + "/" + gistid + "/raw/").read(42)
-        logmsg("Address is "+content);
+        logmsg("Address is " + content)
         print "["+json.dumps(content)+",",
         print json.dumps(value['owner']['id'])+", "+json.dumps(login)+"]"
     else:
-        logmsg("Wrong condition: "+github_user+" != "+login);
+        logmsg("Wrong condition: "+github_user+" != "+login)
         sys.exit("403 Forbidden")
+
+
 
 #Script start
 try:
@@ -272,38 +282,37 @@ if argn > 3:
     sys.exit("400 Error") #bad call
 
 logmsg("Started " + os.environ['ARG0'] + "(" +  os.environ['ARG1']+")")
-    
-#global
+
 script = os.environ['ARG0']
 args = [x.strip() for x in os.environ['ARG1'].split(',')]
 api = GitHubAPI()
 
-if api.checkLimit(5):
+if api.check_limit(5):
     if script == 'update-new':
         repository = GitRepository(api, args[0])
         if len(args) > 1:
-            repository.setBranch(args[1])
+            repository.set_branch(args[1])
         if len(args) > 2:
-            repository.setHead(args[2])
-        repository.updateCommits()
+            repository.set_head(args[2])
+        repository.update_commits()
         print "["+json.dumps(repository.data['id'])+"," + json.dumps(repository.branch['name']) + ",",
         print json.dumps(repository.head) + "," + json.dumps(repository.tail) + ",",
         print str(len(repository.points)) + ",",
         print json.dumps(repository.points.items()),
-        print "]"   
+        print "]"
     elif script == 'update-old':
         repository = GitRepository(api, args[0])
-        repository.setBranch(args[1])
-        repository.setHead(args[2])
+        repository.set_branch(args[1])
+        repository.set_head(args[2])
         try:
-            repository.continueLoading(args[3],args[4])
+            repository.continue_loading(args[3], args[4])
         except IndexError:
-            repository.continueLoading(args[3])
-        print "["+json.dumps(repository.data['id'])+"," + json.dumps(repository.getBranch()['name']) + ",",
+            repository.continue_loading(args[3])
+        print "["+json.dumps(repository.data['id'])+"," + json.dumps(repository.get_branch()['name']) + ",",
         print json.dumps(repository.head) + "," + json.dumps(repository.tail) + ",",
         print str(len(repository.points)) + ",",
         print json.dumps(repository.points.items()),
-        print "]"   
+        print "]"
     elif script == 'repository-add':
         repository = GitRepository(api, args[0])
         print "["+json.dumps(repository.data['id'])+",",
@@ -311,15 +320,15 @@ if api.checkLimit(5):
         print json.dumps(repository.data['watchers_count'])+",",
         print json.dumps(repository.data['stargazers_count'])+"]"
     elif script == "user-add":
-        userRegister(args[0],args[1])
+        user_register(args[0], args[1])
     elif script == "issue-update":
         repository = GitRepository(api, args[0])
-        issue = repository.issuePoints(args[1])
+        issue = repository.issue_points(args[1])
         print "["+json.dumps(repository.data['id'])+"," + json.dumps(issue['id']),
-        print json.dumps(issue['state']) + ", " + datetime.datetime.strptime(issue['closed_at'], "%Y-%m-%dT%H:%M:%SZ" ).strftime('%s') + ", ", 
+        print json.dumps(issue['state']) + ", " + datetime.datetime.strptime(issue['closed_at'], "%Y-%m-%dT%H:%M:%SZ").strftime('%s') + ", ",
         print str(len(repository.points)) + ",",
         print json.dumps(repository.points.items()),
-        print "]"   
+        print "]"
     else:
         sys.exit("501 Not implemented")
 else:
