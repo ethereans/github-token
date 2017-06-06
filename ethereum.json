@@ -14,7 +14,7 @@
     "block": {
       "coinbase" : "0xdedb49385ad5b94a16f236a6890cf9e0b1e30392",
       "difficulty" : "0x0100",
-      "gasLimit" : 6061925 ,
+      "gasLimit" : 6061924 ,
       "gasPrice": 40000000000
     },
     "accounts": {
