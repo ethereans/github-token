@@ -1,5 +1,5 @@
 { 
-  "contracts": "contracts",
+  "contracts": "contracts", 
   
   "deploy": ["GitHubOracleStorage", "GitRepositoryFactory", "GitHubOracle"],
 
